@@ -13,18 +13,20 @@ class AuthController extends Controller
 {
     public function register(Request $request): JsonResponse
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
-        ]);
-
+     $validated = $request->validate([
+    'name' => ['required', 'string', 'max:255'],
+    'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+    'phone' => ['required', 'string', 'max:30', 'unique:users,phone'],
+    'password' => ['required', 'string', 'min:8', 'confirmed'],
+]);
         $user = User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'password' => $validated['password'],
-        ]);
-
+    'name' => $validated['name'],
+    'email' => $validated['email'],
+    'phone' => $validated['phone'],
+    'role' => 'customer',
+    'is_active' => true,
+    'password' => $validated['password'],
+]);
         $token = $user->createToken('numayr-web')->plainTextToken;
 
         return response()->json([
