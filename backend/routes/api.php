@@ -3,6 +3,7 @@ use App\Http\Controllers\Api\AddressController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ProfileController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\CoolerController;
 
 Route::prefix('v1')->group(function () {
     Route::post('/auth/register', [AuthController::class, 'register']);
@@ -16,6 +17,11 @@ Route::post('/addresses', [AddressController::class, 'store']);
 Route::put('/addresses/{address}', [AddressController::class, 'update']);
 Route::delete('/addresses/{address}', [AddressController::class, 'destroy']);
 Route::patch('/addresses/{address}/default', [AddressController::class, 'setDefault']);
+Route::get('/coolers', [CoolerController::class, 'index']);
+Route::post('/coolers', [CoolerController::class, 'store']);
+Route::get('/coolers/{cooler}', [CoolerController::class, 'show']);
+Route::put('/coolers/{cooler}', [CoolerController::class, 'update']);
+Route::delete('/coolers/{cooler}', [CoolerController::class, 'destroy']);
         Route::get('/profile', [ProfileController::class, 'show']);
         Route::put('/profile', [ProfileController::class, 'update']);
     });

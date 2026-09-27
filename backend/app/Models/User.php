@@ -7,6 +7,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+
 class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
@@ -19,6 +20,10 @@ class User extends Authenticatable
     'is_active',
     'password',
 ];
+public function coolers(): HasMany
+{
+    return $this->hasMany(Cooler::class);
+}
 public function addresses(): HasMany
 {
     return $this->hasMany(Address::class);
