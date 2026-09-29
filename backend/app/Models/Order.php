@@ -4,9 +4,16 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Order extends Model
 {
+    public const STATUS_PENDING = 'pending';
+    public const STATUS_CONFIRMED = 'confirmed';
+    public const STATUS_IN_PROGRESS = 'in_progress';
+    public const STATUS_COMPLETED = 'completed';
+    public const STATUS_CANCELLED = 'cancelled';
+
     protected $fillable = [
         'order_number',
         'user_id',
@@ -79,5 +86,60 @@ class Order extends Model
     public function address(): BelongsTo
     {
         return $this->belongsTo(Address::class);
+    }
+
+    public function statusHistory(): HasMany
+    {
+        return $this->hasMany(OrderStatusHistory::class);
+    }
+
+    public function payments(): HasMany
+{
+    return $this->hasMany(Payment::class);
+}
+public function invoices(): HasMany
+{
+    return $this->hasMany(Invoice::class);
+}
+
+    public function canTransitionTo(string $newStatus): bool
+    {
+        $allowedTransitions = [
+            self::STATUS_PENDING => [
+                self::STATUS_CONFIRMED,
+                self::STATUS_CANCELLED,
+            ],
+
+            self::STATUS_CONFIRMED => [
+                self::STATUS_IN_PROGRESS,
+                self::STATUS_CANCELLED,
+            ],
+
+            self::STATUS_IN_PROGRESS => [
+                self::STATUS_COMPLETED,
+            ],
+
+            self::STATUS_COMPLETED => [],
+
+            self::STATUS_CANCELLED => [],
+        ];
+
+        return in_array(
+            $newStatus,
+            $allowedTransitions[$this->status] ?? [],
+            true
+        );
+    }
+
+    public function isFinalStatus(): bool
+    {
+        return in_array(
+            $this->status,
+            [
+                self::STATUS_COMPLETED,
+                self::STATUS_CANCELLED,
+            ],
+            true
+        );
     }
 }

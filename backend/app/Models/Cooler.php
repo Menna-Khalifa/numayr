@@ -30,7 +30,7 @@ class Cooler extends Model
         return [
             'latitude' => 'decimal:7',
             'longitude' => 'decimal:7',
-            'filter_installed_at' => 'date',
+            'filter_installed_at' => 'datetime',
             'health_score' => 'integer',
             'last_refill_at' => 'datetime',
             'last_maintenance_at' => 'datetime',

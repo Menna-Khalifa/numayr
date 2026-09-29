@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\Service;
+use App\Models\SystemSetting;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -21,6 +22,7 @@ class OrderController extends Controller
                 'cooler',
                 'service',
                 'address',
+                'statusHistory',
             ])
             ->latest()
             ->get();
@@ -41,43 +43,35 @@ class OrderController extends Controller
                 'string',
                 'exists:services,code',
             ],
-
             'cooler_id' => [
                 'nullable',
                 'integer',
             ],
-
             'address_id' => [
                 'nullable',
                 'integer',
             ],
-
             'quantity' => [
                 'nullable',
                 'numeric',
                 'gt:0',
             ],
-
             'priority' => [
                 'nullable',
                 'in:standard,urgent',
             ],
-
             'preferred_date' => [
                 'nullable',
                 'date',
             ],
-
             'preferred_time_slot' => [
                 'nullable',
                 'in:morning,noon,evening',
             ],
-
             'service_data' => [
                 'nullable',
                 'array',
             ],
-
             'notes' => [
                 'nullable',
                 'string',
@@ -148,6 +142,14 @@ class OrderController extends Controller
                 throw ValidationException::withMessages([
                     'quantity' => [
                         'الكمية مطلوبة لهذه الخدمة',
+                    ],
+                ]);
+            }
+
+            if ($unitPrice === null) {
+                throw ValidationException::withMessages([
+                    'service_code' => [
+                        'سعر الوحدة غير مضبوط لهذه الخدمة',
                     ],
                 ]);
             }
@@ -272,9 +274,11 @@ class OrderController extends Controller
 
         $subtotal += $urgentFee;
 
-        $taxRate = 0;
-        $taxAmount = 0;
-        $totalAmount = $subtotal;
+        $taxRate = (float) SystemSetting::getValue('tax_rate', 0);
+$currency = (string) SystemSetting::getValue('currency', 'SAR');
+
+$taxAmount = round($subtotal * ($taxRate / 100), 2);
+$totalAmount = round($subtotal + $taxAmount, 2);
 
         $order = DB::transaction(function () use (
             $user,
@@ -290,10 +294,11 @@ class OrderController extends Controller
             $subtotal,
             $taxRate,
             $taxAmount,
-            $totalAmount,
-            $serviceData
+$totalAmount,
+$currency,
+$serviceData
         ) {
-            return Order::create([
+            $order = Order::create([
                 'order_number' => $this->generateOrderNumber(),
 
                 'user_id' => $user->id,
@@ -319,13 +324,13 @@ class OrderController extends Controller
 
                 'total_amount' => round($totalAmount, 2),
 
-                'currency' => 'SAR',
+                'currency' => $currency,
 
                 'priority' => $priority,
                 'preferred_date' => $validated['preferred_date'] ?? null,
                 'preferred_time_slot' => $validated['preferred_time_slot'] ?? null,
 
-                'status' => 'pending',
+                'status' => Order::STATUS_PENDING,
                 'payment_status' => 'pending',
 
                 'service_data' => $serviceData,
@@ -344,12 +349,24 @@ class OrderController extends Controller
 
                 'notes' => $validated['notes'] ?? null,
             ]);
+
+            $order->statusHistory()->create([
+                'from_status' => null,
+                'to_status' => Order::STATUS_PENDING,
+                'changed_by_user_id' => $user->id,
+                'actor_role' => $user->role,
+                'source' => 'customer',
+                'note' => 'تم إنشاء الطلب',
+            ]);
+
+            return $order;
         });
 
         $order->load([
             'cooler',
             'service',
             'address',
+            'statusHistory',
         ]);
 
         return response()->json([
@@ -371,11 +388,193 @@ class OrderController extends Controller
                 'cooler',
                 'service',
                 'address',
+                'statusHistory',
             ])
             ->findOrFail($order);
 
         return response()->json([
             'success' => true,
+            'data' => [
+                'order' => $orderModel,
+            ],
+        ]);
+    }
+
+    public function cancel(
+        Request $request,
+        int $order
+    ): JsonResponse {
+        $validated = $request->validate([
+            'reason' => [
+                'nullable',
+                'string',
+                'max:1000',
+            ],
+        ]);
+
+        $user = $request->user();
+
+        $orderModel = DB::transaction(function () use (
+            $order,
+            $user,
+            $validated
+        ) {
+            $orderModel = Order::query()
+                ->where('user_id', $user->id)
+                ->lockForUpdate()
+                ->findOrFail($order);
+
+            if (! $orderModel->canTransitionTo(Order::STATUS_CANCELLED)) {
+                throw ValidationException::withMessages([
+                    'status' => [
+                        'لا يمكن إلغاء الطلب في حالته الحالية',
+                    ],
+                ]);
+            }
+
+            $fromStatus = $orderModel->status;
+
+            $orderModel->update([
+                'status' => Order::STATUS_CANCELLED,
+                'cancelled_at' => now(),
+            ]);
+
+            $orderModel->statusHistory()->create([
+                'from_status' => $fromStatus,
+                'to_status' => Order::STATUS_CANCELLED,
+                'changed_by_user_id' => $user->id,
+                'actor_role' => $user->role,
+                'source' => 'customer',
+                'note' => $validated['reason']
+                    ?? 'تم إلغاء الطلب بواسطة العميل',
+            ]);
+
+            return $orderModel;
+        });
+
+        $orderModel->refresh();
+
+        $orderModel->load([
+            'cooler',
+            'service',
+            'address',
+            'statusHistory',
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'تم إلغاء الطلب بنجاح',
+            'data' => [
+                'order' => $orderModel,
+            ],
+        ]);
+    }
+
+    public function transition(
+        Request $request,
+        int $order
+    ): JsonResponse {
+        $user = $request->user();
+
+        if ($user->role !== 'admin') {
+            abort(403, 'غير مصرح لك بتغيير حالة الطلب');
+        }
+
+        $validated = $request->validate([
+            'status' => [
+                'required',
+                'string',
+                'in:confirmed,in_progress,completed',
+            ],
+            'note' => [
+                'nullable',
+                'string',
+                'max:1000',
+            ],
+        ]);
+
+        $orderModel = DB::transaction(function () use (
+            $order,
+            $user,
+            $validated
+        ) {
+            $orderModel = Order::query()
+                ->lockForUpdate()
+                ->findOrFail($order);
+
+            $newStatus = $validated['status'];
+
+            if (! $orderModel->canTransitionTo($newStatus)) {
+                throw ValidationException::withMessages([
+                    'status' => [
+                        'لا يمكن نقل الطلب من حالته الحالية إلى الحالة المطلوبة',
+                    ],
+                ]);
+            }
+
+            $fromStatus = $orderModel->status;
+            $completedAt = null;
+
+            $updates = [
+                'status' => $newStatus,
+            ];
+
+            if ($newStatus === Order::STATUS_COMPLETED) {
+                $completedAt = now();
+                $updates['completed_at'] = $completedAt;
+            }
+
+            $orderModel->update($updates);
+
+            if (
+                $newStatus === Order::STATUS_COMPLETED &&
+                $orderModel->cooler_id !== null
+            ) {
+                $cooler = $orderModel->cooler()
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($cooler) {
+                    if ($orderModel->service_code === 'water_refill') {
+                        $cooler->update([
+                            'last_refill_at' => $completedAt,
+                        ]);
+                    } elseif ($orderModel->service_code === 'maintenance') {
+                        $cooler->update([
+                            'last_maintenance_at' => $completedAt,
+                        ]);
+                    } elseif ($orderModel->service_code === 'filter_change') {
+                        $cooler->update([
+                            'filter_installed_at' => $completedAt,
+                        ]);
+                    }
+                }
+            }
+
+            $orderModel->statusHistory()->create([
+                'from_status' => $fromStatus,
+                'to_status' => $newStatus,
+                'changed_by_user_id' => $user->id,
+                'actor_role' => $user->role,
+                'source' => 'admin',
+                'note' => $validated['note'] ?? null,
+            ]);
+
+            return $orderModel;
+        });
+
+        $orderModel->refresh();
+
+        $orderModel->load([
+            'cooler',
+            'service',
+            'address',
+            'statusHistory',
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'تم تحديث حالة الطلب بنجاح',
             'data' => [
                 'order' => $orderModel,
             ],
