@@ -8,10 +8,16 @@ use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\PaymentController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\InvoiceController;
+use App\Http\Controllers\Api\PaymentWebhookController;
 
 Route::prefix('v1')->group(function () {
     Route::post('/auth/register', [AuthController::class, 'register']);
     Route::post('/auth/login', [AuthController::class, 'login']);
+    Route::post(
+    '/payments/webhooks/{provider}',
+    [PaymentWebhookController::class, 'handle']
+);
 
     Route::get('/services', [ServiceController::class, 'index']);
     Route::get('/services/{code}', [ServiceController::class, 'show']);
@@ -19,6 +25,8 @@ Route::prefix('v1')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/auth/me', [AuthController::class, 'me']);
         Route::post('/auth/logout', [AuthController::class, 'logout']);
+        Route::get('/invoices', [InvoiceController::class, 'index']);
+Route::get('/invoices/{invoice}', [InvoiceController::class, 'show']);
 
   Route::get('/orders', [OrderController::class, 'index']);
 Route::post('/orders', [OrderController::class, 'store']);

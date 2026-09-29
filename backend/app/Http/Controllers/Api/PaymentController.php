@@ -11,82 +11,188 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use App\Services\Payments\PaymentGatewayManager;
+use Throwable;
 
 class PaymentController extends Controller
 {
-    public function store(Request $request, int $order): JsonResponse
-    {
-        $user = $request->user();
+    public function store(
+    Request $request,
+    int $order,
+    PaymentGatewayManager $gatewayManager
+): JsonResponse {
+    $user = $request->user();
 
-        $validated = $request->validate([
-            'method' => [
-                'required',
-                'string',
-                Rule::in([
-                    'card',
-                    'mada',
-                    'apple_pay',
-                ]),
+    $validated = $request->validate([
+        'method' => [
+            'required',
+            'string',
+            Rule::in([
+                'card',
+                'mada',
+                'apple_pay',
+            ]),
+        ],
+    ]);
+
+    $result = DB::transaction(function () use (
+        $user,
+        $order,
+        $validated
+    ) {
+        $orderModel = Order::query()
+            ->where('user_id', $user->id)
+            ->lockForUpdate()
+            ->findOrFail($order);
+
+        if ($orderModel->status === Order::STATUS_CANCELLED) {
+            throw ValidationException::withMessages([
+                'order' => [
+                    'لا يمكن الدفع لطلب ملغي',
+                ],
+            ]);
+        }
+
+        if ($orderModel->payment_status === Payment::STATUS_PAID) {
+            throw ValidationException::withMessages([
+                'payment' => [
+                    'تم دفع هذا الطلب بالفعل',
+                ],
+            ]);
+        }
+
+        $existingPayment = $orderModel->payments()
+            ->whereIn('status', [
+                Payment::STATUS_PENDING,
+                Payment::STATUS_PROCESSING,
+            ])
+            ->latest()
+            ->first();
+
+        if ($existingPayment) {
+            return [
+                'payment' => $existingPayment,
+                'created' => false,
+            ];
+        }
+
+        $payment = $orderModel->payments()->create([
+            'provider' => null,
+            'method' => $validated['method'],
+            'status' => Payment::STATUS_PENDING,
+            'amount' => $orderModel->total_amount,
+            'currency' => $orderModel->currency,
+            'metadata' => [
+                'order_number' => $orderModel->order_number,
             ],
         ]);
 
-        $payment = DB::transaction(function () use ($user, $order, $validated) {
-            $orderModel = Order::query()
-                ->where('user_id', $user->id)
-                ->lockForUpdate()
-                ->findOrFail($order);
+        $orderModel->update([
+            'payment_status' => Payment::STATUS_PENDING,
+        ]);
 
-            if ($orderModel->status === Order::STATUS_CANCELLED) {
-                throw ValidationException::withMessages([
-                    'order' => [
-                        'لا يمكن إنشاء عملية دفع لطلب ملغي',
-                    ],
-                ]);
-            }
+        return [
+            'payment' => $payment,
+            'created' => true,
+        ];
+    });
 
-            if ($orderModel->payment_status === Payment::STATUS_PAID) {
-                throw ValidationException::withMessages([
-                    'order' => [
-                        'تم دفع هذا الطلب بالفعل',
-                    ],
-                ]);
-            }
+    $payment = $result['payment'];
 
-            $existingPayment = $orderModel->payments()
-                ->whereIn('status', [
-                    Payment::STATUS_PENDING,
-                    Payment::STATUS_PROCESSING,
-                ])
-                ->latest()
-                ->first();
-
-            if ($existingPayment) {
-                return $existingPayment;
-            }
-
-            return $orderModel->payments()->create([
-                'provider' => null,
-                'method' => $validated['method'],
-                'status' => Payment::STATUS_PENDING,
-                'amount' => $orderModel->total_amount,
-                'currency' => $orderModel->currency,
-                'metadata' => [
-                    'order_number' => $orderModel->order_number,
-                ],
-            ]);
-        });
-
+    if (
+        ! $result['created']
+        && $payment->provider_reference
+    ) {
         $payment->load('order');
 
         return response()->json([
             'success' => true,
-            'message' => 'تم إنشاء محاولة الدفع بنجاح',
+            'message' => 'توجد محاولة دفع نشطة بالفعل',
             'data' => [
                 'payment' => $payment,
             ],
-        ], 201);
+        ]);
     }
 
+    $provider = (string) config('payments.default', 'fake');
+
+    try {
+        $gateway = $gatewayManager->driver($provider);
+
+        $gatewayResult = $gateway->createPayment($payment);
+    } catch (Throwable $exception) {
+        DB::transaction(function () use ($payment, $exception) {
+            $paymentModel = Payment::query()
+                ->lockForUpdate()
+                ->findOrFail($payment->id);
+
+            $paymentModel->update([
+                'status' => Payment::STATUS_FAILED,
+                'failed_at' => now(),
+                'failure_reason' => $exception->getMessage(),
+            ]);
+
+            $paymentModel->order()->update([
+                'payment_status' => Payment::STATUS_FAILED,
+            ]);
+        });
+
+        throw $exception;
+    }
+
+    $payment = DB::transaction(function () use (
+        $payment,
+        $provider,
+        $gatewayResult
+    ) {
+        $paymentModel = Payment::query()
+            ->lockForUpdate()
+            ->findOrFail($payment->id);
+
+        $orderModel = Order::query()
+            ->lockForUpdate()
+            ->findOrFail($paymentModel->order_id);
+
+        $gatewayStatus = $gatewayResult['status']
+            ?? Payment::STATUS_PROCESSING;
+
+        if (! in_array($gatewayStatus, [
+            Payment::STATUS_PENDING,
+            Payment::STATUS_PROCESSING,
+        ], true)) {
+            $gatewayStatus = Payment::STATUS_PROCESSING;
+        }
+
+        $metadata = $paymentModel->metadata ?? [];
+
+        if (array_key_exists('checkout_url', $gatewayResult)) {
+            $metadata['checkout_url'] = $gatewayResult['checkout_url'];
+        }
+
+        $paymentModel->update([
+            'provider' => $provider,
+            'provider_reference' => $gatewayResult['reference'] ?? null,
+            'status' => $gatewayStatus,
+            'metadata' => $metadata,
+        ]);
+
+        $orderModel->update([
+            'payment_status' => $gatewayStatus,
+        ]);
+
+        return $paymentModel;
+    });
+
+    $payment->load('order');
+
+    return response()->json([
+        'success' => true,
+        'message' => 'تم إنشاء محاولة الدفع بنجاح',
+        'data' => [
+            'payment' => $payment,
+        ],
+    ], $result['created'] ? 201 : 200);
+}
     public function index(Request $request, int $order): JsonResponse
     {
         $orderModel = Order::query()
@@ -257,12 +363,18 @@ class PaymentController extends Controller
         }
 
         if ($newStatus === Payment::STATUS_REFUNDED) {
-            $updateData['refunded_at'] = now();
+    $updateData['refunded_at'] = now();
 
-            $orderModel->update([
-                'payment_status' => Payment::STATUS_REFUNDED,
-            ]);
-        }
+    $orderModel->update([
+        'payment_status' => Payment::STATUS_REFUNDED,
+    ]);
+
+    Invoice::query()
+        ->where('payment_id', $paymentModel->id)
+        ->update([
+            'status' => Invoice::STATUS_REFUNDED,
+        ]);
+}
 
         $paymentModel->update($updateData);
 
