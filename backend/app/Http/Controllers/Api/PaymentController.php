@@ -231,9 +231,6 @@ class PaymentController extends Controller
 {
     $user = $request->user();
 
-    if ($user->role !== 'admin') {
-        abort(403, 'غير مصرح لك بتحديث حالة الدفع');
-    }
 
     $validated = $request->validate([
         'status' => [

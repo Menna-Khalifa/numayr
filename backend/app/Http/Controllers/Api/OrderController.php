@@ -476,9 +476,6 @@ $serviceData
     ): JsonResponse {
         $user = $request->user();
 
-        if ($user->role !== 'admin') {
-            abort(403, 'غير مصرح لك بتغيير حالة الطلب');
-        }
 
         $validated = $request->validate([
             'status' => [

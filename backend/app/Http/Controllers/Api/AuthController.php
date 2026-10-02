@@ -39,34 +39,40 @@ class AuthController extends Controller
         ], 201);
     }
 
-    public function login(Request $request): JsonResponse
-    {
-        $validated = $request->validate([
-            'email' => ['required', 'email'],
-            'password' => ['required', 'string'],
-        ]);
+  public function login(Request $request): JsonResponse
+{
+    $validated = $request->validate([
+        'email' => ['required', 'email'],
+        'password' => ['required', 'string'],
+    ]);
 
-        $user = User::where('email', $validated['email'])->first();
+    $user = User::where('email', $validated['email'])->first();
 
-        if (! $user || ! Hash::check($validated['password'], $user->password)) {
-            throw ValidationException::withMessages([
-                'email' => ['بيانات الدخول غير صحيحة'],
-            ]);
-        }
-
-        $user->tokens()->delete();
-
-        $token = $user->createToken('numayr-web')->plainTextToken;
-
-        return response()->json([
-            'success' => true,
-            'message' => 'تم تسجيل الدخول بنجاح',
-            'data' => [
-                'user' => $user,
-                'token' => $token,
-            ],
+    if (! $user || ! Hash::check($validated['password'], $user->password)) {
+        throw ValidationException::withMessages([
+            'email' => ['بيانات الدخول غير صحيحة'],
         ]);
     }
+
+    if (! $user->is_active) {
+        throw ValidationException::withMessages([
+            'email' => ['الحساب موقوف حاليًا'],
+        ]);
+    }
+
+    $user->tokens()->delete();
+
+    $token = $user->createToken('numayr-web')->plainTextToken;
+
+    return response()->json([
+        'success' => true,
+        'message' => 'تم تسجيل الدخول بنجاح',
+        'data' => [
+            'user' => $user,
+            'token' => $token,
+        ],
+    ]);
+}
 
     public function me(Request $request): JsonResponse
     {

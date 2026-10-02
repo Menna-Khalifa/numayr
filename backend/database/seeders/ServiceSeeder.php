@@ -25,18 +25,19 @@ class ServiceSeeder extends Seeder
                 'unit' => 'liter',
 
                 'minimum_quantity' => 100,
-                'maximum_quantity' => 10000,
+                'maximum_quantity' => null,
                 'quantity_step' => 1,
 
                 'urgent_fee' => 15,
 
                 'settings' => [
                     'preset_quantities' => [
-                        500,
-                        1000,
-                        1500,
-                        2000,
-                    ],
+    500,
+    1000,
+    1500,
+    2000,
+    3000,
+],
                     'allow_custom_quantity' => true,
                 ],
 
