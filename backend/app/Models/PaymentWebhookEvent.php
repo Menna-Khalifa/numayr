@@ -8,14 +8,19 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class PaymentWebhookEvent extends Model
 {
     public const STATUS_RECEIVED = 'received';
+
     public const STATUS_PROCESSED = 'processed';
+
     public const STATUS_DUPLICATE = 'duplicate';
+
     public const STATUS_FAILED = 'failed';
+
     public const STATUS_IGNORED = 'ignored';
 
     protected $fillable = [
         'provider',
         'event_id',
+        'idempotency_key',
         'payload_hash',
         'payment_id',
         'provider_reference',

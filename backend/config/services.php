@@ -34,5 +34,8 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
-
+    'sms' => [
+        'driver' => env('SMS_DRIVER', 'log'),
+        'from' => env('SMS_FROM', 'NUMAYR'),
+    ],
 ];

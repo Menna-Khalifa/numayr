@@ -1,5 +1,5 @@
 <?php
 
 return [
-    'default' => env('PAYMENT_PROVIDER', 'fake'),
+    'default' => env('PAYMENT_PROVIDER'),
 ];

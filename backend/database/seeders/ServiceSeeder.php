@@ -32,12 +32,11 @@ class ServiceSeeder extends Seeder
 
                 'settings' => [
                     'preset_quantities' => [
-    500,
-    1000,
-    1500,
-    2000,
-    3000,
-],
+                        500,
+                        1000,
+                        2000,
+                        3000,
+                    ],
                     'allow_custom_quantity' => true,
                 ],
 
@@ -70,7 +69,7 @@ class ServiceSeeder extends Seeder
 
                 'settings' => [
                     'issue_types' => [
-                        'تسرب مياه',
+                        'تسرّب مياه',
                         'ضعف التبريد',
                         'صنبور تالف',
                         'عطل المضخة',
@@ -92,8 +91,8 @@ class ServiceSeeder extends Seeder
                 'name_ar' => 'تغيير الفلاتر',
                 'name_en' => 'Filter Change',
 
-                'description_ar' => 'خدمة تغيير فلاتر البرادة.',
-                'description_en' => 'Cooler filter replacement service.',
+                'description_ar' => 'خدمات تغيير وفحص وتنظيف فلاتر البرادة.',
+                'description_en' => 'Cooler filter replacement, inspection, and cleaning services.',
 
                 'pricing_model' => 'fixed',
 
@@ -112,7 +111,30 @@ class ServiceSeeder extends Seeder
                         [
                             'code' => 'five_stage',
                             'name_ar' => 'تغيير الفلاتر الخمسة',
+                            'name_en' => 'Replace Five Filters',
+                            'description_ar' => 'القطع 50 + العمل 50',
                             'price' => 100,
+                        ],
+                        [
+                            'code' => 'ro_membrane',
+                            'name_ar' => 'تغيير غشاء RO',
+                            'name_en' => 'Replace RO Membrane',
+                            'description_ar' => 'القطع 90 + العمل 50',
+                            'price' => 140,
+                        ],
+                        [
+                            'code' => 'sterilization_cleaning',
+                            'name_ar' => 'تعقيم وتنظيف',
+                            'name_en' => 'Sterilization and Cleaning',
+                            'description_ar' => 'تعقيم شامل للخزان',
+                            'price' => 90,
+                        ],
+                        [
+                            'code' => 'inspection_diagnosis',
+                            'name_ar' => 'فحص وتشخيص',
+                            'name_en' => 'Inspection and Diagnosis',
+                            'description_ar' => 'يُخصم من الإصلاح إن تمّ',
+                            'price' => 50,
                         ],
                     ],
                 ],

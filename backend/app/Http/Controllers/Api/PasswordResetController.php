@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\PasswordResetOtp;
 use App\Models\User;
+use App\Services\Sms\SmsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -13,28 +14,33 @@ use Illuminate\Validation\ValidationException;
 
 class PasswordResetController extends Controller
 {
-    public function requestOtp(Request $request): JsonResponse
-    {
+    public function requestOtp(
+        Request $request,
+        SmsService $smsService
+    ): JsonResponse {
         $validated = $request->validate([
-            'email' => ['required', 'email'],
+            'phone' => [
+                'required',
+                'string',
+                'max:30',
+            ],
         ]);
 
-        $user = User::where('email', $validated['email'])->first();
+        $phone = trim($validated['phone']);
 
-        if (! $user) {
+        $user = User::query()
+            ->where('phone', $phone)
+            ->first();
+
+        if (! $user || ! $user->is_active) {
             return response()->json([
                 'success' => true,
-                'message' => 'إذا كان البريد مسجلًا لدينا فسيتم إرسال رمز التحقق',
+                'message' => 'إذا كان رقم الجوال مسجلًا لدينا فسيتم إرسال رمز التحقق',
             ]);
         }
 
-        if (! $user->is_active) {
-            throw ValidationException::withMessages([
-                'email' => ['الحساب موقوف حاليًا'],
-            ]);
-        }
-
-        PasswordResetOtp::where('user_id', $user->id)
+        PasswordResetOtp::query()
+            ->where('user_id', $user->id)
             ->whereNull('verified_at')
             ->delete();
 
@@ -42,18 +48,25 @@ class PasswordResetController extends Controller
 
         PasswordResetOtp::create([
             'user_id' => $user->id,
-            'channel' => 'email',
+            'channel' => 'sms',
             'otp_hash' => Hash::make($otp),
             'expires_at' => now()->addMinutes(10),
             'attempts' => 0,
         ]);
 
+        $smsService->sendOtp(
+            $user->phone,
+            $otp
+        );
+
         return response()->json([
             'success' => true,
-            'message' => 'تم إنشاء رمز التحقق بنجاح',
+            'message' => 'تم إرسال رمز التحقق بنجاح',
             'data' => [
                 'expires_in_minutes' => 10,
-                'debug_otp' => app()->isLocal() ? $otp : null,
+                'debug_otp' => app()->isLocal()
+                    ? $otp
+                    : null,
             ],
         ]);
     }
@@ -61,40 +74,70 @@ class PasswordResetController extends Controller
     public function verifyOtp(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'email' => ['required', 'email'],
-            'otp' => ['required', 'digits:4'],
+            'phone' => [
+                'required',
+                'string',
+                'max:30',
+            ],
+
+            'otp' => [
+                'required',
+                'digits:4',
+            ],
         ]);
 
-        $user = User::where('email', $validated['email'])->first();
+        $phone = trim($validated['phone']);
+
+        $user = User::query()
+            ->where('phone', $phone)
+            ->first();
 
         if (! $user) {
             throw ValidationException::withMessages([
-                'otp' => ['رمز التحقق غير صحيح أو منتهي الصلاحية'],
+                'otp' => [
+                    'رمز التحقق غير صحيح أو منتهي الصلاحية',
+                ],
             ]);
         }
 
-        $otpRecord = PasswordResetOtp::where('user_id', $user->id)
+        $otpRecord = PasswordResetOtp::query()
+            ->where('user_id', $user->id)
+            ->where('channel', 'sms')
             ->whereNull('verified_at')
             ->latest('id')
             ->first();
 
-        if (! $otpRecord || $otpRecord->isExpired()) {
+        if (
+            ! $otpRecord ||
+            $otpRecord->isExpired()
+        ) {
             throw ValidationException::withMessages([
-                'otp' => ['رمز التحقق غير صحيح أو منتهي الصلاحية'],
+                'otp' => [
+                    'رمز التحقق غير صحيح أو منتهي الصلاحية',
+                ],
             ]);
         }
 
         if ($otpRecord->attempts >= 5) {
             throw ValidationException::withMessages([
-                'otp' => ['تم تجاوز عدد محاولات التحقق المسموح بها'],
+                'otp' => [
+                    'تم تجاوز عدد محاولات التحقق المسموح بها',
+                ],
             ]);
         }
 
-        if (! Hash::check($validated['otp'], $otpRecord->otp_hash)) {
+        if (
+            ! Hash::check(
+                $validated['otp'],
+                $otpRecord->otp_hash
+            )
+        ) {
             $otpRecord->increment('attempts');
 
             throw ValidationException::withMessages([
-                'otp' => ['رمز التحقق غير صحيح'],
+                'otp' => [
+                    'رمز التحقق غير صحيح',
+                ],
             ]);
         }
 
@@ -123,16 +166,29 @@ class PasswordResetController extends Controller
     public function resetPassword(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'reset_token' => ['required', 'string', 'size:64'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'reset_token' => [
+                'required',
+                'string',
+                'size:64',
+            ],
+
+            'password' => [
+                'required',
+                'string',
+                'min:8',
+                'confirmed',
+            ],
         ]);
 
         $cacheKey = 'password-reset:'.$validated['reset_token'];
+
         $userId = cache()->get($cacheKey);
 
         if (! $userId) {
             throw ValidationException::withMessages([
-                'reset_token' => ['رمز إعادة تعيين كلمة المرور غير صالح أو منتهي الصلاحية'],
+                'reset_token' => [
+                    'رمز إعادة تعيين كلمة المرور غير صالح أو منتهي الصلاحية',
+                ],
             ]);
         }
 
@@ -140,7 +196,9 @@ class PasswordResetController extends Controller
 
         if (! $user->is_active) {
             throw ValidationException::withMessages([
-                'reset_token' => ['الحساب موقوف حاليًا'],
+                'reset_token' => [
+                    'الحساب موقوف حاليًا',
+                ],
             ]);
         }
 
@@ -150,7 +208,9 @@ class PasswordResetController extends Controller
 
         $user->tokens()->delete();
 
-        PasswordResetOtp::where('user_id', $user->id)->delete();
+        PasswordResetOtp::query()
+            ->where('user_id', $user->id)
+            ->delete();
 
         cache()->forget($cacheKey);
 

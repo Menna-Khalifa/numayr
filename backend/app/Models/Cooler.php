@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Cooler extends Model
 {
@@ -46,5 +47,13 @@ class Cooler extends Model
     public function address(): BelongsTo
     {
         return $this->belongsTo(Address::class);
+    }
+
+    public function subscriptions(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Subscription::class,
+            'subscription_cooler'
+        )->withTimestamps();
     }
 }

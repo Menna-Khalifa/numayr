@@ -9,9 +9,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Order extends Model
 {
     public const STATUS_PENDING = 'pending';
+
     public const STATUS_CONFIRMED = 'confirmed';
+
     public const STATUS_IN_PROGRESS = 'in_progress';
+
     public const STATUS_COMPLETED = 'completed';
+
     public const STATUS_CANCELLED = 'cancelled';
 
     protected $fillable = [
@@ -19,6 +23,9 @@ class Order extends Model
         'user_id',
         'cooler_id',
         'service_id',
+        'subscription_id',
+        'subscription_plan_code',
+        'subscription_snapshot',
         'address_id',
         'service_code',
         'service_name',
@@ -28,6 +35,8 @@ class Order extends Model
         'base_price',
         'unit_price',
         'urgent_fee',
+        'discount_percent',
+        'discount_amount',
         'subtotal',
         'tax_rate',
         'tax_amount',
@@ -53,6 +62,8 @@ class Order extends Model
             'base_price' => 'decimal:2',
             'unit_price' => 'decimal:4',
             'urgent_fee' => 'decimal:2',
+            'discount_percent' => 'decimal:2',
+            'discount_amount' => 'decimal:2',
             'subtotal' => 'decimal:2',
             'tax_rate' => 'decimal:2',
             'tax_amount' => 'decimal:2',
@@ -63,6 +74,7 @@ class Order extends Model
             'completed_at' => 'datetime',
             'cancelled_at' => 'datetime',
 
+            'subscription_snapshot' => 'array',
             'service_data' => 'array',
             'address_snapshot' => 'array',
         ];
@@ -83,6 +95,11 @@ class Order extends Model
         return $this->belongsTo(Service::class);
     }
 
+    public function subscription(): BelongsTo
+    {
+        return $this->belongsTo(Subscription::class);
+    }
+
     public function address(): BelongsTo
     {
         return $this->belongsTo(Address::class);
@@ -94,13 +111,24 @@ class Order extends Model
     }
 
     public function payments(): HasMany
-{
-    return $this->hasMany(Payment::class);
-}
-public function invoices(): HasMany
-{
-    return $this->hasMany(Invoice::class);
-}
+    {
+        return $this->hasMany(Payment::class);
+    }
+
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(Invoice::class);
+    }
+
+    public function attachments(): HasMany
+    {
+        return $this->hasMany(OrderAttachment::class);
+    }
+
+    public function benefitUsages(): HasMany
+    {
+        return $this->hasMany(SubscriptionBenefitUsage::class);
+    }
 
     public function canTransitionTo(string $newStatus): bool
     {

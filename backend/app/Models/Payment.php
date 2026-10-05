@@ -1,21 +1,26 @@
 <?php
 
 namespace App\Models;
-use Illuminate\Database\Eloquent\Relations\HasOne;
+
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Payment extends Model
 {
-    
     public const STATUS_PENDING = 'pending';
+
     public const STATUS_PROCESSING = 'processing';
+
     public const STATUS_PAID = 'paid';
+
     public const STATUS_FAILED = 'failed';
+
     public const STATUS_REFUNDED = 'refunded';
 
     protected $fillable = [
         'order_id',
+        'subscription_id',
         'provider',
         'method',
         'status',
@@ -44,6 +49,16 @@ class Payment extends Model
     public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);
+    }
+
+    public function subscription(): BelongsTo
+    {
+        return $this->belongsTo(Subscription::class);
+    }
+
+    public function invoice(): HasOne
+    {
+        return $this->hasOne(Invoice::class);
     }
 
     public function canTransitionTo(string $newStatus): bool
@@ -87,8 +102,4 @@ class Payment extends Model
             true
         );
     }
-    public function invoice(): HasOne
-{
-    return $this->hasOne(Invoice::class);
-}
 }

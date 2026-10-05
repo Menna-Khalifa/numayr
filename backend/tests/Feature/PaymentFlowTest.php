@@ -1,0 +1,443 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Invoice;
+use App\Models\Notification;
+use App\Models\Order;
+use App\Models\Payment;
+use App\Models\PaymentWebhookEvent;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Config;
+use Laravel\Sanctum\Sanctum;
+use Tests\TestCase;
+
+class PaymentFlowTest extends TestCase
+{
+    use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Config::set('payments.default', 'fake');
+    }
+
+    public function test_customer_can_create_payment_attempt_for_owned_order(): void
+    {
+        $user = User::factory()->create();
+        $order = $this->createOrder($user);
+
+        Sanctum::actingAs($user);
+
+        $response = $this->postJson(
+            "/api/v1/orders/{$order->id}/payments",
+            [
+                'method' => 'card',
+            ]
+        );
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath(
+                'data.payment.order_id',
+                $order->id
+            )
+            ->assertJsonPath(
+                'data.payment.status',
+                Payment::STATUS_PROCESSING
+            )
+            ->assertJsonPath(
+                'data.payment.amount',
+                '115.00'
+            );
+
+        $this->assertDatabaseCount('payments', 1);
+
+        $this->assertDatabaseHas('payments', [
+            'order_id' => $order->id,
+            'provider' => 'fake',
+            'status' => Payment::STATUS_PROCESSING,
+            'amount' => 115.00,
+        ]);
+
+        $this->assertDatabaseHas('orders', [
+            'id' => $order->id,
+            'payment_status' => Payment::STATUS_PROCESSING,
+        ]);
+    }
+
+    public function test_existing_active_payment_is_reused_instead_of_creating_duplicate(): void
+    {
+        $user = User::factory()->create();
+        $order = $this->createOrder($user);
+
+        Sanctum::actingAs($user);
+
+        $firstResponse = $this->postJson(
+            "/api/v1/orders/{$order->id}/payments",
+            [
+                'method' => 'card',
+            ]
+        );
+
+        $firstResponse->assertCreated();
+
+        $firstPaymentId = $firstResponse->json(
+            'data.payment.id'
+        );
+
+        $secondResponse = $this->postJson(
+            "/api/v1/orders/{$order->id}/payments",
+            [
+                'method' => 'card',
+            ]
+        );
+
+        $secondResponse
+            ->assertOk()
+            ->assertJsonPath(
+                'data.payment.id',
+                $firstPaymentId
+            );
+
+        $this->assertDatabaseCount('payments', 1);
+    }
+
+    public function test_paid_order_cannot_create_another_payment_attempt(): void
+    {
+        $user = User::factory()->create();
+
+        $order = $this->createOrder(
+            $user,
+            Payment::STATUS_PAID
+        );
+
+        Payment::create([
+            'order_id' => $order->id,
+            'provider' => 'fake',
+            'method' => 'card',
+            'status' => Payment::STATUS_PAID,
+            'amount' => 115.00,
+            'currency' => 'SAR',
+            'transaction_id' => 'TX-PAID-001',
+            'provider_reference' => 'FAKE-PAID-001',
+            'paid_at' => now(),
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $response = $this->postJson(
+            "/api/v1/orders/{$order->id}/payments",
+            [
+                'method' => 'card',
+            ]
+        );
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('payment');
+
+        $this->assertDatabaseCount('payments', 1);
+    }
+
+    public function test_paid_webhook_marks_payment_and_order_paid_and_creates_one_invoice(): void
+    {
+        $user = User::factory()->create();
+        $order = $this->createOrder($user);
+
+        $payment = Payment::create([
+            'order_id' => $order->id,
+            'provider' => 'fake',
+            'method' => 'card',
+            'status' => Payment::STATUS_PROCESSING,
+            'amount' => 115.00,
+            'currency' => 'SAR',
+            'provider_reference' => 'FAKE-WEBHOOK-001',
+        ]);
+
+        $response = $this->postJson(
+            '/api/v1/payments/webhooks/fake',
+            [
+                'reference' => 'FAKE-WEBHOOK-001',
+                'status' => Payment::STATUS_PAID,
+                'transaction_id' => 'TX-WEBHOOK-001',
+            ],
+            [
+                'X-Webhook-Id' => 'EVENT-WEBHOOK-001',
+                'X-Payment-Signature' => 'fake-signature',
+            ]
+        );
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('duplicate', false)
+            ->assertJsonPath(
+                'data.payment_id',
+                $payment->id
+            )
+            ->assertJsonPath(
+                'data.status',
+                Payment::STATUS_PAID
+            );
+
+        $this->assertDatabaseHas('payments', [
+            'id' => $payment->id,
+            'status' => Payment::STATUS_PAID,
+            'transaction_id' => 'TX-WEBHOOK-001',
+        ]);
+
+        $this->assertDatabaseHas('orders', [
+            'id' => $order->id,
+            'payment_status' => Payment::STATUS_PAID,
+        ]);
+
+        $this->assertDatabaseHas('invoices', [
+            'order_id' => $order->id,
+            'payment_id' => $payment->id,
+            'user_id' => $user->id,
+            'status' => Invoice::STATUS_PAID,
+        ]);
+
+        $this->assertDatabaseCount('invoices', 1);
+    }
+
+    public function test_same_webhook_event_id_is_idempotent_even_with_different_payload(): void
+    {
+        $user = User::factory()->create();
+        $order = $this->createOrder($user);
+
+        Payment::create([
+            'order_id' => $order->id,
+            'provider' => 'fake',
+            'method' => 'card',
+            'status' => Payment::STATUS_PROCESSING,
+            'amount' => 115.00,
+            'currency' => 'SAR',
+            'provider_reference' => 'FAKE-IDEMPOTENT-001',
+        ]);
+
+        $firstResponse = $this->postJson(
+            '/api/v1/payments/webhooks/fake',
+            [
+                'reference' => 'FAKE-IDEMPOTENT-001',
+                'status' => Payment::STATUS_PAID,
+                'transaction_id' => 'TX-IDEMPOTENT-001',
+            ],
+            [
+                'X-Webhook-Id' => 'EVENT-IDEMPOTENT-001',
+            ]
+        );
+
+        $firstResponse
+            ->assertOk()
+            ->assertJsonPath('duplicate', false);
+
+        $secondResponse = $this->postJson(
+            '/api/v1/payments/webhooks/fake',
+            [
+                'reference' => 'DIFFERENT-REFERENCE',
+                'status' => Payment::STATUS_FAILED,
+                'transaction_id' => 'DIFFERENT-TX',
+            ],
+            [
+                'X-Webhook-Id' => 'EVENT-IDEMPOTENT-001',
+            ]
+        );
+
+        $secondResponse
+            ->assertOk()
+            ->assertJsonPath('duplicate', true);
+
+        $this->assertSame(
+            1,
+            PaymentWebhookEvent::query()
+                ->where(
+                    'event_id',
+                    'EVENT-IDEMPOTENT-001'
+                )
+                ->count()
+        );
+
+        $this->assertDatabaseHas('payments', [
+            'provider_reference' => 'FAKE-IDEMPOTENT-001',
+            'status' => Payment::STATUS_PAID,
+            'transaction_id' => 'TX-IDEMPOTENT-001',
+        ]);
+
+        $this->assertDatabaseMissing('payments', [
+            'transaction_id' => 'DIFFERENT-TX',
+        ]);
+
+        $this->assertDatabaseCount('invoices', 1);
+    }
+
+    public function test_failed_secondary_attempt_does_not_override_paid_order_status(): void
+    {
+        $user = User::factory()->create();
+
+        $order = $this->createOrder(
+            $user,
+            Payment::STATUS_PAID
+        );
+
+        Payment::create([
+            'order_id' => $order->id,
+            'provider' => 'fake',
+            'method' => 'card',
+            'status' => Payment::STATUS_PAID,
+            'amount' => 115.00,
+            'currency' => 'SAR',
+            'transaction_id' => 'TX-PRIMARY-PAID',
+            'provider_reference' => 'FAKE-PRIMARY-PAID',
+            'paid_at' => now(),
+        ]);
+
+        $secondaryPayment = Payment::create([
+            'order_id' => $order->id,
+            'provider' => 'fake',
+            'method' => 'card',
+            'status' => Payment::STATUS_PROCESSING,
+            'amount' => 115.00,
+            'currency' => 'SAR',
+            'provider_reference' => 'FAKE-SECONDARY-FAIL',
+        ]);
+
+        $response = $this->postJson(
+            '/api/v1/payments/webhooks/fake',
+            [
+                'reference' => 'FAKE-SECONDARY-FAIL',
+                'status' => Payment::STATUS_FAILED,
+                'transaction_id' => 'TX-SECONDARY-FAIL',
+            ],
+            [
+                'X-Webhook-Id' => 'EVENT-SECONDARY-FAIL',
+            ]
+        );
+
+        $response
+            ->assertOk()
+            ->assertJsonPath(
+                'data.payment_id',
+                $secondaryPayment->id
+            )
+            ->assertJsonPath(
+                'data.status',
+                Payment::STATUS_FAILED
+            );
+
+        $this->assertDatabaseHas('payments', [
+            'id' => $secondaryPayment->id,
+            'status' => Payment::STATUS_FAILED,
+        ]);
+
+        $this->assertDatabaseHas('orders', [
+            'id' => $order->id,
+            'payment_status' => Payment::STATUS_PAID,
+        ]);
+
+        $this->assertFalse(
+            Notification::query()
+                ->where('user_id', $user->id)
+                ->where('type', 'payment')
+                ->where('data->payment_id', $secondaryPayment->id)
+                ->where('data->status', Payment::STATUS_FAILED)
+                ->exists()
+        );
+    }
+
+    public function test_manual_failed_secondary_payment_does_not_notify_when_order_is_already_paid(): void
+    {
+        $user = User::factory()->create();
+
+        $admin = User::factory()->create([
+            'role' => 'admin',
+        ]);
+
+        $order = $this->createOrder(
+            $user,
+            Payment::STATUS_PAID
+        );
+
+        Payment::create([
+            'order_id' => $order->id,
+            'provider' => 'fake',
+            'method' => 'card',
+            'status' => Payment::STATUS_PAID,
+            'amount' => 115.00,
+            'currency' => 'SAR',
+            'transaction_id' => 'TX-MANUAL-PRIMARY-PAID',
+            'provider_reference' => 'FAKE-MANUAL-PRIMARY-PAID',
+            'paid_at' => now(),
+        ]);
+
+        $secondaryPayment = Payment::create([
+            'order_id' => $order->id,
+            'provider' => 'fake',
+            'method' => 'card',
+            'status' => Payment::STATUS_PROCESSING,
+            'amount' => 115.00,
+            'currency' => 'SAR',
+            'provider_reference' => 'FAKE-MANUAL-SECONDARY',
+        ]);
+
+        Sanctum::actingAs($admin);
+
+        $response = $this->patchJson(
+            "/api/v1/admin/orders/{$order->id}/payments/{$secondaryPayment->id}/transition",
+            [
+                'status' => Payment::STATUS_FAILED,
+                'failure_reason' => 'Secondary attempt failed',
+            ]
+        );
+
+        $response->assertOk();
+
+        $this->assertDatabaseHas('payments', [
+            'id' => $secondaryPayment->id,
+            'status' => Payment::STATUS_FAILED,
+        ]);
+
+        $this->assertDatabaseHas('orders', [
+            'id' => $order->id,
+            'payment_status' => Payment::STATUS_PAID,
+        ]);
+
+        $this->assertFalse(
+            Notification::query()
+                ->where('user_id', $user->id)
+                ->where('type', 'payment')
+                ->where('data->payment_id', $secondaryPayment->id)
+                ->where('data->status', Payment::STATUS_FAILED)
+                ->exists()
+        );
+    }
+
+    private function createOrder(
+        User $user,
+        string $paymentStatus = Payment::STATUS_PENDING
+    ): Order {
+        return Order::create([
+            'order_number' => 'ORD-'.fake()->unique()->numerify('########'),
+            'user_id' => $user->id,
+            'service_code' => 'water_refill',
+            'service_name' => 'تعبئة مياه',
+            'pricing_model' => 'fixed',
+            'subtotal' => 100.00,
+            'tax_rate' => 15.00,
+            'tax_amount' => 15.00,
+            'total_amount' => 115.00,
+            'currency' => 'SAR',
+            'status' => Order::STATUS_PENDING,
+            'payment_status' => $paymentStatus,
+            'service_data' => [
+                'liters' => 2000,
+            ],
+            'address_snapshot' => [
+                'city' => 'Riyadh',
+            ],
+        ]);
+    }
+}

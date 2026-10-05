@@ -1,21 +1,26 @@
 <?php
 
 use App\Http\Controllers\Api\AddressController;
+use App\Http\Controllers\Api\Admin\CustomerController as AdminCustomerController;
+use App\Http\Controllers\Api\Admin\InvoiceController as AdminInvoiceController;
+use App\Http\Controllers\Api\Admin\OrderController as AdminOrderController;
+use App\Http\Controllers\Api\Admin\PaymentController as AdminPaymentController;
+use App\Http\Controllers\Api\Admin\ServiceController as AdminServiceController;
+use App\Http\Controllers\Api\Admin\SubscriptionController as AdminSubscriptionController;
+use App\Http\Controllers\Api\Admin\SystemSettingController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CoolerController;
 use App\Http\Controllers\Api\InvoiceController;
+use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\NotificationPreferenceController;
+use App\Http\Controllers\Api\OrderAttachmentController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\PasswordResetController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\PaymentWebhookController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\ServiceController;
-use App\Http\Controllers\Api\Admin\CustomerController as AdminCustomerController;
-use App\Http\Controllers\Api\Admin\InvoiceController as AdminInvoiceController;
-use App\Http\Controllers\Api\Admin\OrderController as AdminOrderController;
-use App\Http\Controllers\Api\Admin\PaymentController as AdminPaymentController;
-use App\Http\Controllers\Api\Admin\ServiceController as AdminServiceController;
-use App\Http\Controllers\Api\Admin\SystemSettingController;
+use App\Http\Controllers\Api\SubscriptionController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
@@ -45,20 +50,68 @@ Route::prefix('v1')->group(function () {
         [PaymentWebhookController::class, 'handle']
     )->middleware('throttle:payment-webhook');
 
+    Route::get(
+        '/invoice-shares/{invoice}',
+        [InvoiceController::class, 'sharedPdf']
+    )
+        ->middleware('signed')
+        ->name('invoices.shared.pdf');
+
     Route::get('/services', [ServiceController::class, 'index']);
     Route::get('/services/{code}', [ServiceController::class, 'show']);
+
+    Route::get(
+        '/subscription-plans',
+        [SubscriptionController::class, 'plans']
+    );
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/auth/me', [AuthController::class, 'me']);
         Route::post('/auth/logout', [AuthController::class, 'logout']);
+
+        Route::get(
+            '/order-attachments/{attachment}',
+            [OrderAttachmentController::class, 'show']
+        );
 
         Route::get('/profile', [ProfileController::class, 'show']);
         Route::put('/profile', [ProfileController::class, 'update']);
 
         Route::get('/addresses', [AddressController::class, 'index']);
         Route::post('/addresses', [AddressController::class, 'store']);
-        Route::put('/addresses/{address}', [AddressController::class, 'update']);
-        Route::delete('/addresses/{address}', [AddressController::class, 'destroy']);
+        Route::put(
+            '/addresses/{address}',
+            [AddressController::class, 'update']
+        );
+        Route::delete(
+            '/addresses/{address}',
+            [AddressController::class, 'destroy']
+        );
+
+        Route::get(
+            '/notifications',
+            [NotificationController::class, 'index']
+        );
+
+        Route::patch(
+            '/notifications/read-all',
+            [NotificationController::class, 'markAllAsRead']
+        );
+
+        Route::patch(
+            '/notifications/{notification}/read',
+            [NotificationController::class, 'markAsRead']
+        );
+
+        Route::get(
+            '/notification-preferences',
+            [NotificationPreferenceController::class, 'show']
+        );
+
+        Route::patch(
+            '/notification-preferences',
+            [NotificationPreferenceController::class, 'update']
+        );
 
         Route::patch(
             '/addresses/{address}/default',
@@ -67,9 +120,18 @@ Route::prefix('v1')->group(function () {
 
         Route::get('/coolers', [CoolerController::class, 'index']);
         Route::post('/coolers', [CoolerController::class, 'store']);
-        Route::get('/coolers/{cooler}', [CoolerController::class, 'show']);
-        Route::put('/coolers/{cooler}', [CoolerController::class, 'update']);
-        Route::delete('/coolers/{cooler}', [CoolerController::class, 'destroy']);
+        Route::get(
+            '/coolers/{cooler}',
+            [CoolerController::class, 'show']
+        );
+        Route::put(
+            '/coolers/{cooler}',
+            [CoolerController::class, 'update']
+        );
+        Route::delete(
+            '/coolers/{cooler}',
+            [CoolerController::class, 'destroy']
+        );
 
         Route::get('/orders', [OrderController::class, 'index']);
         Route::post('/orders', [OrderController::class, 'store']);
@@ -95,8 +157,50 @@ Route::prefix('v1')->group(function () {
             [PaymentController::class, 'show']
         );
 
-        Route::get('/invoices', [InvoiceController::class, 'index']);
-        Route::get('/invoices/{invoice}', [InvoiceController::class, 'show']);
+        Route::get(
+            '/invoices',
+            [InvoiceController::class, 'index']
+        );
+
+        Route::get(
+            '/invoices/{invoice}',
+            [InvoiceController::class, 'show']
+        );
+
+        Route::get(
+            '/invoices/{invoice}/pdf',
+            [InvoiceController::class, 'pdf']
+        );
+
+        Route::get(
+            '/invoices/{invoice}/download',
+            [InvoiceController::class, 'download']
+        );
+
+        Route::post(
+            '/invoices/{invoice}/share',
+            [InvoiceController::class, 'share']
+        );
+
+        Route::get(
+            '/subscriptions',
+            [SubscriptionController::class, 'index']
+        );
+
+        Route::post(
+            '/subscriptions',
+            [SubscriptionController::class, 'store']
+        );
+
+        Route::get(
+            '/subscriptions/{subscription}',
+            [SubscriptionController::class, 'show']
+        );
+
+        Route::post(
+            '/subscriptions/{subscription}/cancel',
+            [SubscriptionController::class, 'cancel']
+        );
 
         Route::prefix('admin')
             ->middleware('admin')
@@ -119,6 +223,11 @@ Route::prefix('v1')->group(function () {
                 Route::get(
                     '/services/{service}',
                     [AdminServiceController::class, 'show']
+                );
+
+                Route::get(
+                    '/order-attachments/{attachment}',
+                    [OrderAttachmentController::class, 'adminShow']
                 );
 
                 Route::patch(
@@ -179,6 +288,16 @@ Route::prefix('v1')->group(function () {
                 Route::get(
                     '/invoices/{invoice}',
                     [AdminInvoiceController::class, 'show']
+                );
+
+                Route::get(
+                    '/subscriptions',
+                    [AdminSubscriptionController::class, 'index']
+                );
+
+                Route::get(
+                    '/subscriptions/{subscription}',
+                    [AdminSubscriptionController::class, 'show']
                 );
             });
     });
