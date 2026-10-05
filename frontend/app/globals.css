@@ -1,26 +1,108 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --numayr-primary: #0d2b4e;
+  --numayr-primary-soft: #12365f;
+  --numayr-primary-deep: #071a31;
+
+  --numayr-aqua: #16a6c9;
+  --numayr-aqua-light: #56d2ec;
+  --numayr-aqua-soft: #dff6fb;
+
+  --numayr-bg: #edf7fa;
+  --numayr-card: #ffffff;
+
+  --numayr-text: #0d2b4e;
+  --numayr-muted: #718197;
+
+  --numayr-success: #27ae60;
+  --numayr-warning: #f4b400;
+  --numayr-danger: #e53935;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+* {
+  box-sizing: border-box;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  min-height: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  min-height: 100vh;
+  margin: 0;
+  color: var(--numayr-text);
+  background: var(--numayr-bg);
+  font-family: var(--font-almarai), Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  border: 0;
+}
+
+::selection {
+  color: #ffffff;
+  background: rgba(22, 166, 201, 0.75);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #eaf4f7;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(13, 43, 78, 0.22);
+  border-radius: 999px;
+}
+
+@keyframes numayr-water-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  50% {
+    transform: translate3d(22px, -16px, 0) scale(1.05);
+  }
+}
+
+@keyframes numayr-soft-pulse {
+  0%,
+  100% {
+    opacity: 0.42;
+    transform: scale(0.94);
+  }
+
+  50% {
+    opacity: 0.85;
+    transform: scale(1.06);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
