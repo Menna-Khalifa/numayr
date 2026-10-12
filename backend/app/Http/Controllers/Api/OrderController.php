@@ -3,23 +3,39 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+
 use App\Models\Order;
+
 use App\Models\Service;
+
 use App\Models\Subscription;
+
 use App\Models\SystemSetting;
+
 use App\Services\Notifications\NotificationService;
+
 use Illuminate\Http\JsonResponse;
+
 use Illuminate\Http\Request;
+
 use Illuminate\Http\UploadedFile;
+
 use Illuminate\Support\Carbon;
+
 use Illuminate\Support\Facades\DB;
+
 use Illuminate\Support\Facades\Storage;
+
 use Illuminate\Support\Str;
+
 use Illuminate\Validation\ValidationException;
 
 class OrderController extends Controller
+
 {
+
     public function index(Request $request): JsonResponse
+
     {
 
         $orders = $request->user()
@@ -61,6 +77,7 @@ class OrderController extends Controller
     }
 
     public function store(Request $request): JsonResponse
+
     {
 
         $validated = $request->validate([
@@ -194,6 +211,7 @@ class OrderController extends Controller
             ) {
 
                 throw ValidationException::withMessages([
+
                     'attachments' => [
 
                         'إرفاق الصور متاح حاليًا لطلبات الصيانة فقط',
@@ -213,6 +231,7 @@ class OrderController extends Controller
             if (empty($validated['cooler_id'])) {
 
                 throw ValidationException::withMessages([
+
                     'cooler_id' => [
 
                         'يجب اختيار البرادة لهذه الخدمة',
@@ -227,11 +246,14 @@ class OrderController extends Controller
 
                 ->where('is_active', true)
 
+                ->where('approval_status', 'approved')
+
                 ->find($validated['cooler_id']);
 
             if (! $cooler) {
 
                 throw ValidationException::withMessages([
+
                     'cooler_id' => [
 
                         'البرادة المحددة غير صالحة أو غير متاحة',
@@ -255,6 +277,7 @@ class OrderController extends Controller
             if (! $address) {
 
                 throw ValidationException::withMessages([
+
                     'address_id' => [
 
                         'العنوان المحدد غير صالح أو غير متاح',
@@ -276,6 +299,7 @@ class OrderController extends Controller
         if (! $address) {
 
             throw ValidationException::withMessages([
+
                 'address_id' => [
 
                     'يجب تحديد عنوان صالح لتنفيذ الطلب',
@@ -297,6 +321,7 @@ class OrderController extends Controller
         ) {
 
             throw ValidationException::withMessages([
+
                 'address_id' => [
 
                     'العنوان المحدد لا يطابق عنوان البرادة',
@@ -376,6 +401,7 @@ class OrderController extends Controller
             ) {
 
                 throw ValidationException::withMessages([
+
                     'preferred_date' => [
 
                         'الطلب العادي يجب أن يكون موعده خلال يومين',
@@ -395,6 +421,7 @@ class OrderController extends Controller
             ) {
 
                 throw ValidationException::withMessages([
+
                     'preferred_date' => [
 
                         'الطلب العاجل يجب أن يكون موعده اليوم',
@@ -432,6 +459,7 @@ class OrderController extends Controller
             if (! isset($validated['quantity'])) {
 
                 throw ValidationException::withMessages([
+
                     'quantity' => [
 
                         'الكمية مطلوبة لهذه الخدمة',
@@ -445,6 +473,7 @@ class OrderController extends Controller
             if ($unitPrice === null) {
 
                 throw ValidationException::withMessages([
+
                     'service_code' => [
 
                         'سعر الوحدة غير مضبوط لهذه الخدمة',
@@ -466,6 +495,7 @@ class OrderController extends Controller
             ) {
 
                 throw ValidationException::withMessages([
+
                     'quantity' => [
 
                         'الكمية أقل من الحد الأدنى المسموح',
@@ -485,6 +515,7 @@ class OrderController extends Controller
             ) {
 
                 throw ValidationException::withMessages([
+
                     'quantity' => [
 
                         'الكمية أكبر من الحد الأقصى المسموح',
@@ -510,6 +541,7 @@ class OrderController extends Controller
             ) {
 
                 throw ValidationException::withMessages([
+
                     'quantity' => [
 
                         'الكمية لا تتوافق مع الزيادة المسموح بها',
@@ -533,6 +565,7 @@ class OrderController extends Controller
                 if (empty($serviceData['option_code'])) {
 
                     throw ValidationException::withMessages([
+
                         'service_data.option_code' => [
 
                             'يجب اختيار نوع خدمة الفلاتر',
@@ -556,6 +589,7 @@ class OrderController extends Controller
                 if (! $selectedOption) {
 
                     throw ValidationException::withMessages([
+
                         'service_data.option_code' => [
 
                             'خيار الفلتر المحدد غير صالح',
@@ -583,6 +617,7 @@ class OrderController extends Controller
                 if (empty($serviceData['issue_type'])) {
 
                     throw ValidationException::withMessages([
+
                         'service_data.issue_type' => [
 
                             'يجب تحديد نوع المشكلة',
@@ -606,6 +641,7 @@ class OrderController extends Controller
                 )) {
 
                     throw ValidationException::withMessages([
+
                         'service_data.issue_type' => [
 
                             'نوع المشكلة المحدد غير صالح',
@@ -625,6 +661,7 @@ class OrderController extends Controller
                 ) {
 
                     throw ValidationException::withMessages([
+
                         'service_data.description' => [
 
                             'وصف المشكلة يجب أن يكون نصًا',
@@ -640,6 +677,7 @@ class OrderController extends Controller
         } else {
 
             throw ValidationException::withMessages([
+
                 'service_code' => [
 
                     'نظام تسعير الخدمة غير مدعوم',
@@ -650,7 +688,9 @@ class OrderController extends Controller
 
         }
 
-        $subtotal += $urgentFee;
+        if ($service->pricing_model !== 'quote') {
+            $subtotal += $urgentFee;
+        }
 
         $taxRate = (float) SystemSetting::getValue(
 
@@ -785,6 +825,9 @@ class OrderController extends Controller
                     'service_name' => $service->name_ar,
 
                     'pricing_model' => $service->pricing_model,
+                    'quote_status' => $service->pricing_model === 'quote'
+                        ? Order::QUOTE_STATUS_AWAITING_INSPECTION
+                        : null,
 
                     'quantity' => $quantity,
 
@@ -919,6 +962,7 @@ class OrderController extends Controller
             }
 
             throw $e;
+
         }
 
         $order->load([
@@ -1042,6 +1086,7 @@ class OrderController extends Controller
             if (! $orderModel->canTransitionTo(Order::STATUS_CANCELLED)) {
 
                 throw ValidationException::withMessages([
+
                     'status' => [
 
                         'لا يمكن إلغاء الطلب في حالته الحالية',
@@ -1171,6 +1216,24 @@ class OrderController extends Controller
             $newStatus = $validated['status'];
 
             if (
+                $orderModel->pricing_model === 'quote' &&
+                in_array($newStatus, [
+                    Order::STATUS_IN_PROGRESS,
+                    Order::STATUS_COMPLETED,
+                ], true) &&
+                (
+                    $orderModel->quote_status !== Order::QUOTE_STATUS_APPROVED ||
+                    $orderModel->payment_status !== 'paid'
+                )
+            ) {
+                throw ValidationException::withMessages([
+                    'quote_status' => [
+                        'لا يمكن بدء أو إكمال طلب المعاينة قبل اعتماد السعر وتأكيد الدفع',
+                    ],
+                ]);
+            }
+
+            if (
 
                 in_array(
 
@@ -1195,6 +1258,7 @@ class OrderController extends Controller
             ) {
 
                 throw ValidationException::withMessages([
+
                     'payment_status' => [
 
                         'لا يمكن بدء أو إكمال تنفيذ طلب مدفوع قبل تأكيد الدفع',
@@ -1208,6 +1272,7 @@ class OrderController extends Controller
             if (! $orderModel->canTransitionTo($newStatus)) {
 
                 throw ValidationException::withMessages([
+
                     'status' => [
 
                         'لا يمكن نقل الطلب من حالته الحالية إلى الحالة المطلوبة',
@@ -1393,6 +1458,7 @@ class OrderController extends Controller
     }
 
     private function generateOrderNumber(): string
+
     {
 
         do {
@@ -1418,4 +1484,5 @@ class OrderController extends Controller
         return $number;
 
     }
+
 }

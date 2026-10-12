@@ -26,7 +26,8 @@ class PasswordResetController extends Controller
             ],
         ]);
 
-        $phone = trim($validated['phone']);
+        $inputPhone = trim($validated['phone']);
+$phone = \App\Support\SaudiPhone::normalize($inputPhone) ?? $inputPhone;
 
         $user = User::query()
             ->where('phone', $phone)
@@ -41,6 +42,7 @@ class PasswordResetController extends Controller
 
         PasswordResetOtp::query()
             ->where('user_id', $user->id)
+            ->where('purpose', 'password_reset')
             ->whereNull('verified_at')
             ->delete();
 
@@ -49,6 +51,7 @@ class PasswordResetController extends Controller
         PasswordResetOtp::create([
             'user_id' => $user->id,
             'channel' => 'sms',
+            'purpose' => 'password_reset',
             'otp_hash' => Hash::make($otp),
             'expires_at' => now()->addMinutes(10),
             'attempts' => 0,
@@ -64,9 +67,7 @@ class PasswordResetController extends Controller
             'message' => 'تم إرسال رمز التحقق بنجاح',
             'data' => [
                 'expires_in_minutes' => 10,
-                'debug_otp' => app()->isLocal()
-                    ? $otp
-                    : null,
+
             ],
         ]);
     }
@@ -86,7 +87,8 @@ class PasswordResetController extends Controller
             ],
         ]);
 
-        $phone = trim($validated['phone']);
+        $inputPhone = trim($validated['phone']);
+$phone = \App\Support\SaudiPhone::normalize($inputPhone) ?? $inputPhone;
 
         $user = User::query()
             ->where('phone', $phone)
@@ -103,6 +105,7 @@ class PasswordResetController extends Controller
         $otpRecord = PasswordResetOtp::query()
             ->where('user_id', $user->id)
             ->where('channel', 'sms')
+            ->where('purpose', 'password_reset')
             ->whereNull('verified_at')
             ->latest('id')
             ->first();
@@ -210,6 +213,7 @@ class PasswordResetController extends Controller
 
         PasswordResetOtp::query()
             ->where('user_id', $user->id)
+            ->where('purpose', 'password_reset')
             ->delete();
 
         cache()->forget($cacheKey);

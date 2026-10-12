@@ -10,6 +10,7 @@ class PasswordResetOtp extends Model
     protected $fillable = [
         'user_id',
         'channel',
+        'purpose',
         'otp_hash',
         'expires_at',
         'verified_at',

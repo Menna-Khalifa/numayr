@@ -59,4 +59,47 @@ class RateLimitSecurityTest extends TestCase
             'otp' => '1234',
         ])->assertStatus(429);
     }
+    public function test_international_and_local_phone_share_otp_rate_limit(): void
+    {
+        $this->postJson('/api/v1/auth/password/forgot', [
+            'phone' => '0551234567',
+        ])->assertOk();
+
+        $this->postJson('/api/v1/auth/password/forgot', [
+            'phone' => '+966551234567',
+        ])->assertOk();
+
+        $this->postJson('/api/v1/auth/password/forgot', [
+            'phone' => '966551234567',
+        ])->assertOk();
+
+        $this->postJson('/api/v1/auth/password/forgot', [
+            'phone' => '00966551234567',
+        ])->assertStatus(429);
+    }
+    public function test_changing_ip_cannot_bypass_phone_hourly_otp_limit(): void
+    {
+        $formats = [
+            '0551234567',
+            '+966551234567',
+            '966551234567',
+            '00966551234567',
+            '551234567',
+            '055 123 4567',
+        ];
+
+        foreach ($formats as $index => $phone) {
+            $this->withServerVariables([
+                'REMOTE_ADDR' => '198.51.100.'.($index + 10),
+            ])->postJson('/api/v1/auth/password/forgot', [
+                'phone' => $phone,
+            ])->assertOk();
+        }
+
+        $this->withServerVariables([
+            'REMOTE_ADDR' => '198.51.100.99',
+        ])->postJson('/api/v1/auth/password/forgot', [
+            'phone' => '+966551234567',
+        ])->assertStatus(429);
+    }
 }

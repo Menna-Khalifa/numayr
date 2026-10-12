@@ -4,6 +4,7 @@ namespace App\Services\Payments;
 
 use App\Services\Payments\Contracts\PaymentGateway;
 use App\Services\Payments\Gateways\FakePaymentGateway;
+use App\Services\Payments\Gateways\MoyasarGateway;
 use InvalidArgumentException;
 use RuntimeException;
 
@@ -24,6 +25,7 @@ class PaymentGatewayManager
 
         return match ($provider) {
             'fake' => app(FakePaymentGateway::class),
+            'moyasar' => app(MoyasarGateway::class),
 
             default => throw new InvalidArgumentException(
                 "Unsupported payment provider: {$provider}"

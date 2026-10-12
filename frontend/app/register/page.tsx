@@ -1,7 +1,6 @@
 "use client";
 
 import { ApiError, apiRequest } from "@/lib/api";
-import { saveAuthToken } from "@/lib/auth";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -26,15 +25,9 @@ type RegisterResponse = {
   success: true;
   message: string;
   data: {
-    user: {
-      id: number;
-      name: string;
-      email: string;
-      phone: string;
-      role: string;
-      is_active: boolean;
-    };
-    token: string;
+    phone: string;
+    requires_phone_verification: boolean;
+    expires_in_minutes: number;
   };
 };
 
@@ -83,7 +76,7 @@ export default function RegisterPage() {
           method: "POST",
           body: JSON.stringify({
             name: name.trim(),
-            email: email.trim(),
+            email: email.trim() || undefined,
             phone: phone.trim(),
             password,
             password_confirmation: passwordConfirmation,
@@ -91,9 +84,16 @@ export default function RegisterPage() {
         }
       );
 
-      saveAuthToken(response.data.token);
+      if (!response.data.requires_phone_verification) {
+        throw new Error("Unexpected registration response");
+      }
 
-      router.push("/dashboard");
+      sessionStorage.setItem(
+        "numayr_registration_phone",
+        response.data.phone
+      );
+
+      router.push("/register/verify");
     } catch (exception) {
       if (exception instanceof ApiError) {
         setError(exception.message);
@@ -278,7 +278,7 @@ export default function RegisterPage() {
                 >
                   <input
                     type="email"
-                    required
+
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
                     placeholder="name@example.com"

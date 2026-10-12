@@ -9,6 +9,7 @@ import {
   useTransform,
 } from "framer-motion";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import type { PointerEvent } from "react";
 
@@ -44,6 +45,8 @@ const rays = [
 const headline = ["عناية", "تستحقها", "برادتك"];
 
 export default function SplashScreen() {
+  const router = useRouter();
+
   /* ---------- pointer parallax ---------- */
   const px = useMotionValue(0);
   const py = useMotionValue(0);
@@ -75,14 +78,20 @@ export default function SplashScreen() {
 
   useEffect(() => {
     const controls = animate(progress, 100, {
-      delay: 2,
-      duration: 3.4,
+      delay: 0.7,
+      duration: 2.8,
       ease: [0.45, 0.05, 0.25, 1],
-      repeat: Infinity,
-      repeatDelay: 0.7,
     });
-    return () => controls.stop();
-  }, [progress]);
+
+    const redirectTimer = window.setTimeout(() => {
+      router.replace("/role");
+    }, 3800);
+
+    return () => {
+      controls.stop();
+      window.clearTimeout(redirectTimer);
+    };
+  }, [progress, router]);
 
   return (
     <MotionConfig reducedMotion="user">

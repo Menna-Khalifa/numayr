@@ -11,68 +11,152 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
-    public function register(Request $request): JsonResponse
-    {
-     $validated = $request->validate([
-    'name' => ['required', 'string', 'max:255'],
-    'email' => ['required', 'email', 'max:255', 'unique:users,email'],
-    'phone' => ['required', 'string', 'max:30', 'unique:users,phone'],
-    'password' => ['required', 'string', 'min:8', 'confirmed'],
-]);
-        $user = User::create([
-    'name' => $validated['name'],
-    'email' => $validated['email'],
-    'phone' => $validated['phone'],
-    'role' => 'customer',
-    'is_active' => true,
-    'password' => $validated['password'],
-]);
-        $token = $user->createToken('numayr-web')->plainTextToken;
+    public function register(
+        Request $request,
+        \App\Services\Sms\SmsService $smsService
+    ): JsonResponse {
+        $normalizedPhone = \App\Support\SaudiPhone::normalize(
+            (string) $request->input('phone', '')
+        );
+
+        if ($normalizedPhone !== null) {
+            $request->merge(['phone' => $normalizedPhone]);
+        }
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['nullable', 'email', 'max:255', 'unique:users,email'],
+            'phone' => ['required', 'string', 'regex:/^05[0-9]{8}$/', 'unique:users,phone'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        $phone = $validated['phone'];
+        $digits = substr($phone, 1);
+
+        $variants = [
+            $phone,
+            $digits,
+            '966'.$digits,
+            '+966'.$digits,
+            '00966'.$digits,
+        ];
+
+        if (User::query()->whereIn('phone', $variants)->exists()) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'phone' => ['رقم الجوال مسجل بالفعل'],
+            ]);
+        }
+        $otp = (string) random_int(1000, 9999);
+
+        $user = \Illuminate\Support\Facades\DB::transaction(function () use ($validated, $otp, $smsService) {
+            $user = User::create([
+                'name' => $validated['name'],
+                'email' => $validated['email'] ?? null,
+                'phone' => $validated['phone'],
+                'role' => 'customer',
+                'is_active' => false,
+                'password' => $validated['password'],
+            ]);
+
+            \App\Models\PasswordResetOtp::create([
+                'user_id' => $user->id,
+                'channel' => 'sms',
+                'purpose' => 'registration',
+                'otp_hash' => \Illuminate\Support\Facades\Hash::make($otp),
+                'expires_at' => now()->addMinutes(10),
+                'attempts' => 0,
+            ]);
+
+            $smsService->sendOtp($user->phone, $otp);
+
+            return $user;
+        });
 
         return response()->json([
             'success' => true,
-            'message' => 'تم إنشاء الحساب بنجاح',
+            'message' => 'Account created. Please verify your phone number.',
             'data' => [
-                'user' => $user,
-                'token' => $token,
+                'phone' => $user->phone,
+                'requires_phone_verification' => true,
+                'expires_in_minutes' => 10,
             ],
         ], 201);
     }
 
-  public function login(Request $request): JsonResponse
-{
-    $validated = $request->validate([
-        'email' => ['required', 'email'],
-        'password' => ['required', 'string'],
-    ]);
+    public function login(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'email' => ['required', 'string', 'max:255'],
+            'password' => ['required', 'string'],
+        ]);
 
-    $user = User::where('email', $validated['email'])->first();
+        $identifier = trim($validated['email']);
 
-    if (! $user || ! Hash::check($validated['password'], $user->password)) {
-        throw ValidationException::withMessages([
-            'email' => ['بيانات الدخول غير صحيحة'],
+        if (filter_var($identifier, FILTER_VALIDATE_EMAIL)) {
+            $users = User::query()
+                ->where('email', $identifier)
+                ->limit(2)
+                ->get();
+        } else {
+            $users = User::query()
+                ->whereIn('phone', $this->phoneVariants($identifier))
+                ->limit(2)
+                ->get();
+        }
+
+        $user = $users->count() === 1 ? $users->first() : null;
+
+        if (! $user || ! Hash::check($validated['password'], $user->password)) {
+            throw ValidationException::withMessages([
+                'email' => ['بيانات الدخول غير صحيحة'],
+            ]);
+        }
+
+        if (! $user->is_active) {
+            throw ValidationException::withMessages([
+                'email' => ['الحساب موقوف حاليًا'],
+            ]);
+        }
+
+        $user->tokens()->delete();
+
+        $token = $user->createToken('numayr-web')->plainTextToken;
+
+        return response()->json([
+            'success' => true,
+            'message' => 'تم تسجيل الدخول بنجاح',
+            'data' => [
+                'user' => $user,
+                'token' => $token,
+            ],
         ]);
     }
 
-    if (! $user->is_active) {
-        throw ValidationException::withMessages([
-            'email' => ['الحساب موقوف حاليًا'],
-        ]);
+    private function phoneVariants(string $phone): array
+    {
+        $phone = trim($phone);
+        $clean = preg_replace('/[\s\-()]/u', '', $phone);
+
+        $variants = [$phone, $clean];
+
+        if (preg_match('/^05\d{8}$/', $clean)) {
+            $national = substr($clean, 1);
+        } elseif (preg_match('/^5\d{8}$/', $clean)) {
+            $national = $clean;
+        } elseif (preg_match('/^(?:966|\+966|00966)(5\d{8})$/', $clean, $matches)) {
+            $national = $matches[1];
+        } else {
+            return array_values(array_unique($variants));
+        }
+
+        return array_values(array_unique([
+            ...$variants,
+            $national,
+            '0' . $national,
+            '966' . $national,
+            '+966' . $national,
+            '00966' . $national,
+        ]));
     }
-
-    $user->tokens()->delete();
-
-    $token = $user->createToken('numayr-web')->plainTextToken;
-
-    return response()->json([
-        'success' => true,
-        'message' => 'تم تسجيل الدخول بنجاح',
-        'data' => [
-            'user' => $user,
-            'token' => $token,
-        ],
-    ]);
-}
 
     public function me(Request $request): JsonResponse
     {

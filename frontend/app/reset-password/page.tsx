@@ -68,7 +68,7 @@ export default function ResetPasswordPage() {
 
       sessionStorage.removeItem("numayr_reset_token");
       sessionStorage.removeItem("numayr_reset_phone");
-      sessionStorage.removeItem("numayr_debug_otp");
+
 
       setSuccess(true);
 

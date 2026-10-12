@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useState } from "react";
 
 const logoUrl =
@@ -47,6 +47,9 @@ const particles = [
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const portal = searchParams.get("portal") === "admin" ? "admin" : "customer";
+  const isAdminPortal = portal === "admin";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -70,9 +73,19 @@ export default function LoginPage() {
         }),
       });
 
+      if (isAdminPortal && response.data.user.role !== "admin") {
+        setError("هذا الحساب لا يملك صلاحية الدخول إلى بوابة الإدارة");
+        return;
+      }
+
       saveAuthToken(response.data.token);
 
-      router.push("/dashboard");
+      if (response.data.user.role === "admin") {
+        router.replace("/admin");
+        return;
+      }
+
+      router.replace("/dashboard");
     } catch (exception) {
       if (exception instanceof ApiError) {
         setError(exception.message);
@@ -216,8 +229,12 @@ export default function LoginPage() {
                 }}
                 className="text-[28px] font-extrabold leading-tight tracking-[-0.035em]"
               >
-                <span className="text-[#0d2b4e]">أهلاً بعودتك </span>
-                <span className="text-[#16a6c9]">إلى نمير</span>
+                <span className="text-[#0d2b4e]">
+                  {isAdminPortal ? "أهلاً بك في " : "أهلاً بعودتك "}
+                </span>
+                <span className="text-[#16a6c9]">
+                  {isAdminPortal ? "إدارة نمير" : "إلى نمير"}
+                </span>
               </motion.h1>
 
               <motion.p
@@ -254,7 +271,7 @@ export default function LoginPage() {
                 className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#16a6c9]/15 bg-white/70 px-3.5 py-2 text-xs font-bold text-[#1599b9] shadow-sm backdrop-blur-xl"
               >
                 <ShieldCheck className="h-4 w-4" />
-                دخول آمن إلى حسابك
+                {isAdminPortal ? "دخول آمن إلى بوابة الإدارة" : "دخول آمن إلى حسابك"}
               </motion.span>
 
               <h1 className="text-[38px] font-extrabold tracking-[-0.045em]">
@@ -265,7 +282,9 @@ export default function LoginPage() {
               </h1>
 
               <p className="mt-3 text-sm font-bold leading-7 text-[#718197]">
-                تابع براداتك وطلباتك وخدماتك من مكان واحد.
+                {isAdminPortal
+                  ? "إدارة الطلبات والعملاء والخدمات من مكان واحد."
+                  : "تابع براداتك وطلباتك وخدماتك من مكان واحد."}
               </p>
             </div>
 
@@ -296,7 +315,7 @@ export default function LoginPage() {
                     htmlFor="email"
                     className="mb-2.5 block text-[13px] font-extrabold text-[#0d2b4e]"
                   >
-                    البريد الإلكتروني
+                    رقم الجوال أو البريد الإلكتروني
                   </label>
 
                   <div className="group relative">
@@ -306,14 +325,14 @@ export default function LoginPage() {
 
                     <input
                       id="email"
-                      type="email"
-                      autoComplete="email"
+                      type="text"
+                      autoComplete="username"
                       required
                       value={email}
                       onChange={(event) =>
                         setEmail(event.target.value)
                       }
-                      placeholder="name@example.com"
+                      placeholder="05xxxxxxxx أو name@example.com"
                       dir="ltr"
                       className="h-[60px] w-full rounded-[18px] border border-[#dbe8ed] bg-white/90 pr-[60px] pl-4 text-left text-sm font-bold text-[#0d2b4e] outline-none transition-all placeholder:font-normal placeholder:text-[#a9b9c4] hover:border-[#c8dde5] focus:border-[#16a6c9] focus:shadow-[0_0_0_4px_rgba(22,166,201,.08)]"
                     />
@@ -448,13 +467,27 @@ export default function LoginPage() {
               }}
               className="mt-6 text-center text-[13px] font-bold text-[#718197]"
             >
-              ليس لديك حساب؟{" "}
-              <Link
-                href="/register"
-                className="font-extrabold text-[#16a6c9] transition-colors hover:text-[#0d2b4e]"
-              >
-                أنشئ حسابك
-              </Link>
+              {isAdminPortal ? (
+                <>
+                  لست مسؤولًا؟{" "}
+                  <Link
+                    href="/role"
+                    className="font-extrabold text-[#16a6c9] transition-colors hover:text-[#0d2b4e]"
+                  >
+                    العودة لاختيار نوع الدخول
+                  </Link>
+                </>
+              ) : (
+                <>
+                  ليس لديك حساب؟{" "}
+                  <Link
+                    href="/register"
+                    className="font-extrabold text-[#16a6c9] transition-colors hover:text-[#0d2b4e]"
+                  >
+                    أنشئ حسابك
+                  </Link>
+                </>
+              )}
             </motion.p>
           </motion.div>
         </section>

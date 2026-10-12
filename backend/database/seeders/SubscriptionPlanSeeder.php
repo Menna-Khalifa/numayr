@@ -9,11 +9,9 @@ class SubscriptionPlanSeeder extends Seeder
 {
     public function run(): void
     {
-        SubscriptionPlan::updateOrCreate(
+        $plans = [
             [
                 'code' => 'peace_of_mind',
-            ],
-            [
                 'name_ar' => 'اطمئن على صدقتك الجارية',
                 'name_en' => 'Peace of Mind',
                 'description_ar' => 'فحصان سنويًا + تنبيهات ذكية + أولوية + خصم 15%',
@@ -32,14 +30,9 @@ class SubscriptionPlanSeeder extends Seeder
                 'is_featured' => false,
                 'is_active' => true,
                 'sort_order' => 1,
-            ]
-        );
-
-        SubscriptionPlan::updateOrCreate(
-            [
-                'code' => 'full_care',
             ],
             [
+                'code' => 'full_care',
                 'name_ar' => 'العناية الكاملة',
                 'name_en' => 'Full Care',
                 'description_ar' => '4 فحوص + 3 تغييرات فلاتر مشمولة + أولوية + خصم 15%',
@@ -58,14 +51,9 @@ class SubscriptionPlanSeeder extends Seeder
                 'is_featured' => true,
                 'is_active' => true,
                 'sort_order' => 2,
-            ]
-        );
-
-        SubscriptionPlan::updateOrCreate(
-            [
-                'code' => 'annual_care',
             ],
             [
+                'code' => 'annual_care',
                 'name_ar' => 'العناية السنوية',
                 'name_en' => 'Annual Care',
                 'description_ar' => 'العناية الكاملة مدفوعة سنويًا',
@@ -84,7 +72,14 @@ class SubscriptionPlanSeeder extends Seeder
                 'is_featured' => false,
                 'is_active' => true,
                 'sort_order' => 3,
-            ]
-        );
+            ],
+        ];
+
+        foreach ($plans as $plan) {
+            SubscriptionPlan::updateOrCreate(
+                ['code' => $plan['code']],
+                $plan
+            );
+        }
     }
 }

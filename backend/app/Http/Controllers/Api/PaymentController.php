@@ -1,7 +1,5 @@
 <?php
-
 namespace App\Http\Controllers\Api;
-
 use App\Http\Controllers\Controller;
 use App\Http\Resources\PaymentResource;
 use App\Models\Invoice;
@@ -17,7 +15,6 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
 use Throwable;
-
 class PaymentController extends Controller
 {
     public function store(
@@ -26,7 +23,6 @@ class PaymentController extends Controller
         PaymentGatewayManager $gatewayManager
     ): JsonResponse {
         $user = $request->user();
-
         $validated = $request->validate([
             'method' => [
                 'required',
@@ -38,7 +34,6 @@ class PaymentController extends Controller
                 ]),
             ],
         ]);
-
         $result = DB::transaction(function () use (
             $user,
             $order,
@@ -48,7 +43,6 @@ class PaymentController extends Controller
                 ->where('user_id', $user->id)
                 ->lockForUpdate()
                 ->findOrFail($order);
-
             if ($orderModel->status === Order::STATUS_CANCELLED) {
                 throw ValidationException::withMessages([
                     'order' => [
@@ -56,11 +50,16 @@ class PaymentController extends Controller
                     ],
                 ]);
             }
-
+            if (! $orderModel->isPaymentAllowed()) {
+                throw ValidationException::withMessages([
+                    'payment' => [
+                        'لا يمكن الدفع لهذا الطلب قبل اعتماد السعر والموافقة عليه',
+                    ],
+                ]);
+            }
             $hasPaidPayment = $orderModel->payments()
                 ->where('status', Payment::STATUS_PAID)
                 ->exists();
-
             if ($hasPaidPayment) {
                 if (
                     $orderModel->payment_status !==
@@ -70,14 +69,12 @@ class PaymentController extends Controller
                         'payment_status' => Payment::STATUS_PAID,
                     ]);
                 }
-
                 throw ValidationException::withMessages([
                     'payment' => [
                         'تم دفع هذا الطلب بالفعل',
                     ],
                 ]);
             }
-
             $existingPayment = $orderModel->payments()
                 ->whereIn('status', [
                     Payment::STATUS_PENDING,
@@ -85,14 +82,12 @@ class PaymentController extends Controller
                 ])
                 ->latest()
                 ->first();
-
             if ($existingPayment) {
                 return [
                     'payment' => $existingPayment,
                     'created' => false,
                 ];
             }
-
             $payment = $orderModel->payments()->create([
                 'provider' => null,
                 'method' => $validated['method'],
@@ -103,23 +98,18 @@ class PaymentController extends Controller
                     'order_number' => $orderModel->order_number,
                 ],
             ]);
-
             $this->syncOrderPaymentStatus($orderModel);
-
             return [
                 'payment' => $payment,
                 'created' => true,
             ];
         });
-
         $payment = $result['payment'];
-
         if (
             ! $result['created']
             && $payment->provider_reference
         ) {
             $payment->load('order');
-
             return response()->json([
                 'success' => true,
                 'message' => 'توجد محاولة دفع نشطة بالفعل',
@@ -128,15 +118,12 @@ class PaymentController extends Controller
                 ],
             ]);
         }
-
         $provider = config('payments.default');
-
         if (! is_string($provider) || $provider === '') {
             throw new RuntimeException(
                 'Payment provider is not configured.'
             );
         }
-
         try {
             $gateway = $gatewayManager->driver($provider);
             $gatewayResult = $gateway->createPayment($payment);
@@ -148,23 +135,18 @@ class PaymentController extends Controller
                 $paymentModel = Payment::query()
                     ->lockForUpdate()
                     ->findOrFail($payment->id);
-
                 $orderModel = Order::query()
                     ->lockForUpdate()
                     ->findOrFail($paymentModel->order_id);
-
                 $paymentModel->update([
                     'status' => Payment::STATUS_FAILED,
                     'failed_at' => now(),
                     'failure_reason' => $exception->getMessage(),
                 ]);
-
                 $this->syncOrderPaymentStatus($orderModel);
             });
-
             throw $exception;
         }
-
         $payment = DB::transaction(function () use (
             $payment,
             $provider,
@@ -173,42 +155,32 @@ class PaymentController extends Controller
             $paymentModel = Payment::query()
                 ->lockForUpdate()
                 ->findOrFail($payment->id);
-
             $orderModel = Order::query()
                 ->lockForUpdate()
                 ->findOrFail($paymentModel->order_id);
-
             $gatewayStatus = $gatewayResult['status']
                 ?? Payment::STATUS_PROCESSING;
-
             if (! in_array($gatewayStatus, [
                 Payment::STATUS_PENDING,
                 Payment::STATUS_PROCESSING,
             ], true)) {
                 $gatewayStatus = Payment::STATUS_PROCESSING;
             }
-
             $metadata = $paymentModel->metadata ?? [];
-
             if (array_key_exists('checkout_url', $gatewayResult)) {
                 $metadata['checkout_url'] =
                     $gatewayResult['checkout_url'];
             }
-
             $paymentModel->update([
                 'provider' => $provider,
                 'provider_reference' => $gatewayResult['reference'] ?? null,
                 'status' => $gatewayStatus,
                 'metadata' => $metadata,
             ]);
-
             $this->syncOrderPaymentStatus($orderModel);
-
             return $paymentModel;
         });
-
         $payment->load('order');
-
         return response()->json([
             'success' => true,
             'message' => 'تم إنشاء محاولة الدفع بنجاح',
@@ -217,7 +189,6 @@ class PaymentController extends Controller
             ],
         ], $result['created'] ? 201 : 200);
     }
-
     public function index(
         Request $request,
         int $order
@@ -225,11 +196,9 @@ class PaymentController extends Controller
         $orderModel = Order::query()
             ->where('user_id', $request->user()->id)
             ->findOrFail($order);
-
         $payments = $orderModel->payments()
             ->latest()
             ->get();
-
         return response()->json([
             'success' => true,
             'data' => [
@@ -237,7 +206,6 @@ class PaymentController extends Controller
             ],
         ]);
     }
-
     public function show(
         Request $request,
         int $order,
@@ -246,10 +214,8 @@ class PaymentController extends Controller
         $orderModel = Order::query()
             ->where('user_id', $request->user()->id)
             ->findOrFail($order);
-
         $paymentModel = $orderModel->payments()
             ->findOrFail($payment);
-
         return response()->json([
             'success' => true,
             'data' => [
@@ -257,7 +223,6 @@ class PaymentController extends Controller
             ],
         ]);
     }
-
     public function transition(
         Request $request,
         int $order,
@@ -290,7 +255,6 @@ class PaymentController extends Controller
                 'max:1000',
             ],
         ]);
-
         $result = DB::transaction(function () use (
             $order,
             $payment,
@@ -299,14 +263,18 @@ class PaymentController extends Controller
             $orderModel = Order::query()
                 ->lockForUpdate()
                 ->findOrFail($order);
-
             $paymentModel = Payment::query()
                 ->where('order_id', $orderModel->id)
                 ->lockForUpdate()
                 ->findOrFail($payment);
-
+            if ($paymentModel->provider !== 'fake') {
+                throw ValidationException::withMessages([
+                    'payment' => [
+                        'لا يمكن تغيير حالة مدفوعات بوابة الدفع الإلكترونية يدويًا',
+                    ],
+                ]);
+            }
             $newStatus = $validated['status'];
-
             if (! $paymentModel->canTransitionTo($newStatus)) {
                 throw ValidationException::withMessages([
                     'status' => [
@@ -314,26 +282,21 @@ class PaymentController extends Controller
                     ],
                 ]);
             }
-
             $updateData = [
                 'status' => $newStatus,
             ];
-
             if (! empty($validated['transaction_id'])) {
                 $updateData['transaction_id'] =
                     $validated['transaction_id'];
             }
-
             if (! empty($validated['provider_reference'])) {
                 $updateData['provider_reference'] =
                     $validated['provider_reference'];
             }
-
             if ($newStatus === Payment::STATUS_PAID) {
                 $updateData['paid_at'] = now();
                 $updateData['failed_at'] = null;
                 $updateData['failure_reason'] = null;
-
                 Invoice::firstOrCreate(
                     [
                         'order_id' => $orderModel->id,
@@ -367,42 +330,32 @@ class PaymentController extends Controller
                     ]
                 );
             }
-
             if ($newStatus === Payment::STATUS_FAILED) {
                 $updateData['failed_at'] = now();
                 $updateData['failure_reason'] =
                     $validated['failure_reason'] ?? null;
             }
-
             if ($newStatus === Payment::STATUS_REFUNDED) {
                 $updateData['refunded_at'] = now();
-
                 Invoice::query()
                     ->where('payment_id', $paymentModel->id)
                     ->update([
                         'status' => Invoice::STATUS_REFUNDED,
                     ]);
             }
-
             $paymentModel->update($updateData);
-
             $this->syncOrderPaymentStatus($orderModel);
-
             return [
                 'payment' => $paymentModel,
                 'status' => $newStatus,
             ];
         });
-
         $paymentModel = $result['payment'];
-
         $this->sendOrderPaymentNotification(
             $paymentModel->fresh(),
             $result['status']
         );
-
         $paymentModel->load('order');
-
         return response()->json([
             'success' => true,
             'message' => 'تم تحديث حالة الدفع بنجاح',
@@ -411,13 +364,11 @@ class PaymentController extends Controller
             ],
         ]);
     }
-
     private function syncOrderPaymentStatus(
         Order $order
     ): void {
         $statuses = $order->payments()
             ->pluck('status');
-
         if ($statuses->contains(Payment::STATUS_PAID)) {
             $status = Payment::STATUS_PAID;
         } elseif (
@@ -435,14 +386,12 @@ class PaymentController extends Controller
         } else {
             $status = Payment::STATUS_FAILED;
         }
-
         if ($order->payment_status !== $status) {
             $order->update([
                 'payment_status' => $status,
             ]);
         }
     }
-
     private function sendOrderPaymentNotification(
         Payment $payment,
         string $status
@@ -461,25 +410,20 @@ class PaymentController extends Controller
                 'body' => 'تم تحديث دفعة طلبك إلى مستردة',
             ],
         ];
-
         if (! isset($messages[$status])) {
             return;
         }
-
         $order = Order::query()
             ->find($payment->order_id);
-
         if (! $order) {
             return;
         }
-
         if (
             $status === Payment::STATUS_FAILED
             && $order->payment_status === Payment::STATUS_PAID
         ) {
             return;
         }
-
         app(NotificationService::class)->sendInApp(
             userId: $order->user_id,
             type: 'payment',
@@ -495,7 +439,6 @@ class PaymentController extends Controller
             ]
         );
     }
-
     private function generateInvoiceNumber(): string
     {
         do {
@@ -508,7 +451,6 @@ class PaymentController extends Controller
                 ->where('invoice_number', $number)
                 ->exists()
         );
-
         return $number;
     }
 }

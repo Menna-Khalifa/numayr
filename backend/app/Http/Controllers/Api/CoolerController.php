@@ -3,8 +3,12 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Notification;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 
 class CoolerController extends Controller
 {
@@ -14,7 +18,8 @@ class CoolerController extends Controller
             ->coolers()
             ->with('address')
             ->latest()
-            ->get();
+            ->get()
+            ->map(fn ($cooler) => $this->presentCooler($cooler));
 
         return response()->json([
             'success' => true,
@@ -39,8 +44,10 @@ class CoolerController extends Controller
             ],
             'photo' => [
                 'nullable',
-                'string',
-                'max:2048',
+                'file',
+                'image',
+                'mimes:jpg,jpeg,png,webp',
+                'max:5120',
             ],
             'latitude' => [
                 'nullable',
@@ -69,12 +76,14 @@ class CoolerController extends Controller
             'notes' => [
                 'nullable',
                 'string',
+                'max:5000',
             ],
         ]);
 
+        $user = $request->user();
+
         if (! empty($validated['address_id'])) {
-            $ownsAddress = $request->user()
-                ->addresses()
+            $ownsAddress = $user->addresses()
                 ->whereKey($validated['address_id'])
                 ->exists();
 
@@ -86,20 +95,72 @@ class CoolerController extends Controller
             }
         }
 
-        $cooler = $request->user()->coolers()->create([
+        $photo = $validated['photo'] ?? null;
+        unset($validated['photo']);
+
+        $photoPath = null;
+
+        if ($photo instanceof UploadedFile) {
+            $photoPath = $photo->store(
+                'coolers/'.$user->id,
+                'public'
+            );
+        }
+
+        $cooler = $user->coolers()->create([
             ...$validated,
+            'photo' => $photoPath,
             'status' => 'unknown',
             'health_score' => null,
             'is_active' => true,
         ]);
 
+        $cooler->approval_status = 'pending_review';
+        $cooler->rejection_reason = null;
+        $cooler->reviewed_at = null;
+        $cooler->reviewed_by_user_id = null;
+        $cooler->save();
+
+        Notification::query()->create([
+            'user_id' => $user->id,
+            'type' => 'cooler_review',
+            'title' => 'تم استلام البرادة للمراجعة',
+            'body' => 'تم تسجيل البرادة وسيتم إشعارك فور مراجعتها من الإدارة.',
+            'data' => [
+                'cooler_id' => $cooler->id,
+                'approval_status' => 'pending_review',
+            ],
+            'channels' => ['in_app'],
+            'sent_at' => now(),
+        ]);
+
+        User::query()
+            ->where('role', 'admin')
+            ->where('is_active', true)
+            ->pluck('id')
+            ->each(function (int $adminId) use ($cooler, $user) {
+                Notification::query()->create([
+                    'user_id' => $adminId,
+                    'type' => 'cooler_review',
+                    'title' => 'برادة جديدة بانتظار المراجعة',
+                    'body' => $user->name.' أضاف برادة جديدة تحتاج إلى مراجعة.',
+                    'data' => [
+                        'cooler_id' => $cooler->id,
+                        'customer_id' => $user->id,
+                        'approval_status' => 'pending_review',
+                    ],
+                    'channels' => ['in_app'],
+                    'sent_at' => now(),
+                ]);
+            });
+
         $cooler->load('address');
 
         return response()->json([
             'success' => true,
-            'message' => 'تمت إضافة البرادة بنجاح',
+            'message' => 'تمت إضافة البرادة وإرسالها للمراجعة',
             'data' => [
-                'cooler' => $cooler,
+                'cooler' => $this->presentCooler($cooler),
             ],
         ], 201);
     }
@@ -114,7 +175,7 @@ class CoolerController extends Controller
         return response()->json([
             'success' => true,
             'data' => [
-                'cooler' => $coolerModel,
+                'cooler' => $this->presentCooler($coolerModel),
             ],
         ]);
     }
@@ -141,8 +202,14 @@ class CoolerController extends Controller
             'photo' => [
                 'sometimes',
                 'nullable',
-                'string',
-                'max:2048',
+                'file',
+                'image',
+                'mimes:jpg,jpeg,png,webp',
+                'max:5120',
+            ],
+            'remove_photo' => [
+                'sometimes',
+                'boolean',
             ],
             'latitude' => [
                 'sometimes',
@@ -177,14 +244,14 @@ class CoolerController extends Controller
                 'sometimes',
                 'nullable',
                 'string',
-            ],
-            'is_active' => [
-                'sometimes',
-                'boolean',
+                'max:5000',
             ],
         ]);
 
-        if (array_key_exists('address_id', $validated) && $validated['address_id'] !== null) {
+        if (
+            array_key_exists('address_id', $validated) &&
+            ! empty($validated['address_id'])
+        ) {
             $ownsAddress = $request->user()
                 ->addresses()
                 ->whereKey($validated['address_id'])
@@ -198,15 +265,65 @@ class CoolerController extends Controller
             }
         }
 
+        $photo = $validated['photo'] ?? null;
+        $removePhoto = (bool) ($validated['remove_photo'] ?? false);
+
+        unset(
+            $validated['photo'],
+            $validated['remove_photo']
+        );
+
+        if ($removePhoto && $coolerModel->photo) {
+            Storage::disk('public')->delete($coolerModel->photo);
+            $validated['photo'] = null;
+        }
+
+        if ($photo instanceof UploadedFile) {
+            if ($coolerModel->photo) {
+                Storage::disk('public')->delete($coolerModel->photo);
+            }
+
+            $validated['photo'] = $photo->store(
+                'coolers/'.$request->user()->id,
+                'public'
+            );
+        }
+
         $coolerModel->update($validated);
+
+        $coolerModel->approval_status = 'pending_review';
+        $coolerModel->rejection_reason = null;
+        $coolerModel->reviewed_at = null;
+        $coolerModel->reviewed_by_user_id = null;
+        $coolerModel->save();
+
+        User::query()
+            ->where('role', 'admin')
+            ->where('is_active', true)
+            ->pluck('id')
+            ->each(function (int $adminId) use ($coolerModel, $request) {
+                Notification::query()->create([
+                    'user_id' => $adminId,
+                    'type' => 'cooler_review',
+                    'title' => 'برادة معدلة تحتاج إلى المراجعة',
+                    'body' => $request->user()->name.' عدّل بيانات برادة ويجب مراجعتها.',
+                    'data' => [
+                        'cooler_id' => $coolerModel->id,
+                        'customer_id' => $request->user()->id,
+                        'approval_status' => 'pending_review',
+                    ],
+                    'channels' => ['in_app'],
+                    'sent_at' => now(),
+                ]);
+            });
 
         $coolerModel->load('address');
 
         return response()->json([
             'success' => true,
-            'message' => 'تم تحديث بيانات البرادة بنجاح',
+            'message' => 'تم تحديث البرادة وإرسالها للمراجعة',
             'data' => [
-                'cooler' => $coolerModel,
+                'cooler' => $this->presentCooler($coolerModel),
             ],
         ]);
     }
@@ -217,11 +334,29 @@ class CoolerController extends Controller
             ->coolers()
             ->findOrFail($cooler);
 
+        if ($coolerModel->photo) {
+            Storage::disk('public')->delete($coolerModel->photo);
+        }
+
         $coolerModel->delete();
 
         return response()->json([
             'success' => true,
             'message' => 'تم حذف البرادة بنجاح',
         ]);
+    }
+
+    private function presentCooler($cooler): mixed
+    {
+        if ($cooler->photo) {
+            $cooler->setAttribute(
+                'photo_url',
+                url(Storage::disk('public')->url($cooler->photo))
+            );
+        } else {
+            $cooler->setAttribute('photo_url', null);
+        }
+
+        return $cooler;
     }
 }

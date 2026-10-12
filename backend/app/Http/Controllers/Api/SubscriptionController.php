@@ -176,6 +176,16 @@ class SubscriptionController extends Controller
                     ],
                 ]);
             }
+            $unapprovedCoolers = $coolers
+    ->where('approval_status', '!=', 'approved');
+
+if ($unapprovedCoolers->isNotEmpty()) {
+    throw ValidationException::withMessages([
+        'cooler_ids' => [
+            'لا يمكن إضافة برادة إلى الاشتراك قبل اعتمادها من الإدارة',
+        ],
+    ]);
+}
 
             $differentAddressCoolers = $coolers
                 ->where('address_id', '!=', $address->id);

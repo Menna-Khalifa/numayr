@@ -33,17 +33,28 @@ class AppServiceProvider extends ServiceProvider
         });
 
         RateLimiter::for('password-forgot', function (Request $request) {
-            return Limit::perMinute(3)->by(
-                trim((string) $request->input('phone')).'|'.$request->ip()
-            );
+            $phone = \App\Support\SaudiPhone::normalize(
+                (string) $request->input('phone', '')
+            ) ?? trim((string) $request->input('phone'));
+
+            return [
+                Limit::perMinute(3)->by('otp-forgot-pair:'.$phone.'|'.$request->ip()),
+                Limit::perHour(6)->by('otp-phone:'.$phone),
+                Limit::perMinute(10)->by('otp-forgot-ip:'.$request->ip()),
+            ];
         });
 
         RateLimiter::for('password-verify', function (Request $request) {
-            return Limit::perMinute(5)->by(
-                trim((string) $request->input('phone')).'|'.$request->ip()
-            );
-        });
+            $phone = \App\Support\SaudiPhone::normalize(
+                (string) $request->input('phone', '')
+            ) ?? trim((string) $request->input('phone'));
 
+            return [
+                Limit::perMinute(5)->by('otp-verify-pair:'.$phone.'|'.$request->ip()),
+                Limit::perHour(15)->by('otp-verify-phone:'.$phone),
+                Limit::perMinute(20)->by('otp-verify-ip:'.$request->ip()),
+            ];
+        });
         RateLimiter::for('password-reset', function (Request $request) {
             return Limit::perMinute(5)->by($request->ip());
         });

@@ -1,27 +1,31 @@
 "use client";
 
 import AppShell from "@/components/app/AppShell";
-import { ApiError, apiRequest } from "@/lib/api";
+import { API_URL, ApiError, apiRequest } from "@/lib/api";
 import { getAuthToken, removeAuthToken } from "@/lib/auth";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
   CalendarDays,
   ChevronRight,
+  CheckCircle2,
   CircleAlert,
+  Clock3,
   Droplets,
   Edit3,
   Filter,
   Gauge,
+  ImagePlus,
   MapPin,
   Snowflake,
   Trash2,
   Wrench,
   X,
+  XCircle,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useState } from "react";
 
 type Address = {
   id?: number;
@@ -34,6 +38,9 @@ type Cooler = {
   id: number;
   name: string;
   photo: string | null;
+  photo_url?: string | null;
+  approval_status?: "pending_review" | "approved" | "rejected" | "disabled" | null;
+  rejection_reason?: string | null;
   latitude: number | string | null;
   longitude: number | string | null;
   landmark: string | null;
@@ -60,6 +67,31 @@ type UpdateResponse = {
     cooler: Cooler;
   };
 };
+
+
+function getCoolerPhoto(cooler: Cooler) {
+  if (cooler.photo_url) {
+    return cooler.photo_url;
+  }
+
+  if (
+    cooler.photo &&
+    (cooler.photo.startsWith("http://") ||
+      cooler.photo.startsWith("https://"))
+  ) {
+    return cooler.photo;
+  }
+
+  return null;
+}
+
+function approvalLabel(status?: Cooler["approval_status"]) {
+  if (status === "pending_review") return "قيد المراجعة";
+  if (status === "approved") return "معتمدة";
+  if (status === "rejected") return "تحتاج تعديل";
+  if (status === "disabled") return "موقوفة";
+  return "قيد المراجعة";
+}
 
 export default function CoolerDetailsPage() {
   const params = useParams<{ id: string }>();
@@ -157,6 +189,9 @@ export default function CoolerDetailsPage() {
     );
   }
 
+  const canUseServices = cooler.approval_status === "approved";
+  const coolerPhoto = getCoolerPhoto(cooler);
+
   return (
     <AppShell>
       <div className="mx-auto max-w-[1500px]">
@@ -195,9 +230,9 @@ export default function CoolerDetailsPage() {
           <div className="relative z-10 flex flex-col gap-7 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
               <div className="flex h-[120px] w-[120px] shrink-0 items-center justify-center overflow-hidden rounded-[28px] bg-[#def5f9] shadow-[0_18px_45px_rgba(0,0,0,.18)]">
-                {cooler.photo ? (
+                {coolerPhoto ? (
                   <img
-                    src={cooler.photo}
+                    src={coolerPhoto}
                     alt={cooler.name}
                     className="h-full w-full object-cover"
                   />
@@ -285,6 +320,42 @@ export default function CoolerDetailsPage() {
           />
         </section>
 
+        {cooler.approval_status !== "approved" ? (
+          <section
+            className={`mt-7 rounded-[24px] border p-5 ${
+              cooler.approval_status === "rejected"
+                ? "border-red-100 bg-red-50"
+                : cooler.approval_status === "disabled"
+                  ? "border-slate-200 bg-slate-50"
+                  : "border-amber-100 bg-amber-50"
+            }`}
+          >
+            <div className="flex items-start gap-3">
+              {cooler.approval_status === "rejected" ? (
+                <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-500" />
+              ) : cooler.approval_status === "disabled" ? (
+                <CircleAlert className="mt-0.5 h-5 w-5 shrink-0 text-slate-500" />
+              ) : (
+                <Clock3 className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+              )}
+
+              <div>
+                <p className="text-sm font-extrabold text-[#0d2b4e]">
+                  {approvalLabel(cooler.approval_status)}
+                </p>
+                <p className="mt-1 text-xs font-bold leading-6 text-[#718592]">
+                  {cooler.approval_status === "rejected"
+                    ? cooler.rejection_reason ||
+                      "يرجى تعديل بيانات البرادة ثم إرسالها للمراجعة مرة أخرى."
+                    : cooler.approval_status === "disabled"
+                      ? "هذه البرادة موقوفة حاليًا من الإدارة ولا يمكن طلب الخدمات عليها."
+                      : "تم إرسال البرادة للإدارة للمراجعة. سيصلك إشعار فور اعتمادها."}
+                </p>
+              </div>
+            </div>
+          </section>
+        ) : null}
+
         <section className="mt-8">
           <div className="mb-5">
             <p className="text-[11px] font-extrabold text-[#16a6c9]">
@@ -302,6 +373,7 @@ export default function CoolerDetailsPage() {
               description="اختر الكمية المناسبة وابدأ الطلب."
               icon={<Droplets className="h-6 w-6" />}
               href={`/services/refill?cooler=${cooler.id}`}
+              disabled={!canUseServices}
             />
 
             <QuickAction
@@ -309,6 +381,7 @@ export default function CoolerDetailsPage() {
               description="حدد المشكلة وسجل طلب الصيانة."
               icon={<Wrench className="h-6 w-6" />}
               href={`/services/maintenance?cooler=${cooler.id}`}
+              disabled={!canUseServices}
             />
 
             <QuickAction
@@ -316,6 +389,7 @@ export default function CoolerDetailsPage() {
               description="اختر خدمة الفلتر المناسبة."
               icon={<Filter className="h-6 w-6" />}
               href={`/services/filters?cooler=${cooler.id}`}
+              disabled={!canUseServices}
             />
           </div>
         </section>
@@ -404,23 +478,37 @@ function StatusBadge({
 }: {
   cooler: Cooler;
 }) {
-  if (
-    cooler.status === "good" ||
-    (cooler.health_score !== null &&
-      cooler.health_score >= 70)
-  ) {
+  if (cooler.approval_status === "pending_review" || !cooler.approval_status) {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-400/15 px-3 py-1.5 text-[10px] font-extrabold text-emerald-200">
-        <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
-        حالة جيدة
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-400/15 px-3 py-1.5 text-[10px] font-extrabold text-amber-200">
+        <Clock3 className="h-3 w-3" />
+        قيد المراجعة
+      </span>
+    );
+  }
+
+  if (cooler.approval_status === "rejected") {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-red-400/15 px-3 py-1.5 text-[10px] font-extrabold text-red-200">
+        <XCircle className="h-3 w-3" />
+        تحتاج تعديل
+      </span>
+    );
+  }
+
+  if (cooler.approval_status === "disabled") {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-[10px] font-extrabold text-white/65">
+        <CircleAlert className="h-3 w-3" />
+        موقوفة
       </span>
     );
   }
 
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-[10px] font-extrabold text-white/65">
-      <span className="h-1.5 w-1.5 rounded-full bg-[#6eddf3]" />
-      بانتظار التقييم
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-400/15 px-3 py-1.5 text-[10px] font-extrabold text-emerald-200">
+      <CheckCircle2 className="h-3 w-3" />
+      معتمدة
     </span>
   );
 }
@@ -456,34 +544,72 @@ function QuickAction({
   description,
   icon,
   href,
+  disabled = false,
 }: {
   title: string;
   description: string;
   icon: React.ReactNode;
   href: string;
+  disabled?: boolean;
 }) {
+  const content = (
+    <>
+      <div>
+        <div
+          className={`flex h-12 w-12 items-center justify-center rounded-[16px] ${
+            disabled
+              ? "bg-slate-100 text-slate-400"
+              : "bg-[#eaf8fb] text-[#16a6c9]"
+          }`}
+        >
+          {icon}
+        </div>
+
+        <h3
+          className={`mt-4 text-sm font-extrabold ${
+            disabled ? "text-slate-500" : "text-[#0d2b4e]"
+          }`}
+        >
+          {title}
+        </h3>
+
+        <p className="mt-2 text-xs font-bold leading-6 text-[#8497a4]">
+          {disabled
+            ? "تتاح هذه الخدمة بعد اعتماد البرادة من الإدارة."
+            : description}
+        </p>
+      </div>
+
+      <span
+        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] ${
+          disabled
+            ? "bg-slate-100 text-slate-400"
+            : "bg-[#f3f8fa] text-[#8194a2] transition group-hover:bg-[#0d2b4e] group-hover:text-white"
+        }`}
+      >
+        {disabled ? (
+          <Clock3 className="h-4 w-4" />
+        ) : (
+          <ArrowLeft className="h-4 w-4" />
+        )}
+      </span>
+    </>
+  );
+
+  if (disabled) {
+    return (
+      <div className="flex min-h-[150px] cursor-not-allowed items-start justify-between rounded-[24px] border border-slate-200 bg-slate-50/70 p-5 opacity-80">
+        {content}
+      </div>
+    );
+  }
+
   return (
     <Link
       href={href}
       className="group flex min-h-[150px] items-start justify-between rounded-[24px] border border-[#e0ecef] bg-white p-5 shadow-[0_12px_38px_rgba(13,43,78,.045)] transition hover:-translate-y-1 hover:border-[#bce5ee] hover:shadow-[0_20px_48px_rgba(13,43,78,.08)]"
     >
-      <div>
-        <div className="flex h-12 w-12 items-center justify-center rounded-[16px] bg-[#eaf8fb] text-[#16a6c9]">
-          {icon}
-        </div>
-
-        <h3 className="mt-4 text-sm font-extrabold text-[#0d2b4e]">
-          {title}
-        </h3>
-
-        <p className="mt-2 text-xs font-bold leading-6 text-[#8497a4]">
-          {description}
-        </p>
-      </div>
-
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] bg-[#f3f8fa] text-[#8194a2] transition group-hover:bg-[#0d2b4e] group-hover:text-white">
-        <ArrowLeft className="h-4 w-4" />
-      </span>
+      {content}
     </Link>
   );
 }
@@ -518,26 +644,53 @@ function EditCoolerModal({
   onUpdated: (cooler: Cooler) => void;
 }) {
   const [name, setName] = useState(cooler.name);
-  const [landmark, setLandmark] = useState(
-    cooler.landmark || ""
+  const [landmark, setLandmark] = useState(cooler.landmark || "");
+  const [filterType, setFilterType] = useState(cooler.filter_type || "");
+  const [filterInstalledAt, setFilterInstalledAt] = useState(
+    cooler.filter_installed_at
+      ? cooler.filter_installed_at.slice(0, 10)
+      : "",
   );
-  const [filterType, setFilterType] = useState(
-    cooler.filter_type || ""
-  );
-  const [filterInstalledAt, setFilterInstalledAt] =
-    useState(
-      cooler.filter_installed_at
-        ? cooler.filter_installed_at.slice(0, 10)
-        : ""
-    );
   const [notes, setNotes] = useState(cooler.notes || "");
-
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [preview, setPreview] = useState(getCoolerPhoto(cooler) || "");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
-  async function handleSubmit(
-    event: FormEvent<HTMLFormElement>
-  ) {
+  useEffect(() => {
+    if (!photo) {
+      setPreview(getCoolerPhoto(cooler) || "");
+      return;
+    }
+
+    const url = URL.createObjectURL(photo);
+    setPreview(url);
+
+    return () => URL.revokeObjectURL(url);
+  }, [cooler, photo]);
+
+  function handlePhoto(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0] || null;
+
+    if (!file) return;
+
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setError("الصورة يجب أن تكون JPG أو PNG أو WebP");
+      event.target.value = "";
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError("حجم الصورة يجب ألا يتجاوز 5MB");
+      event.target.value = "";
+      return;
+    }
+
+    setError("");
+    setPhoto(file);
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const token = getAuthToken();
@@ -550,26 +703,47 @@ function EditCoolerModal({
     setSaving(true);
 
     try {
-      const response =
-        await apiRequest<UpdateResponse>(
-          `/coolers/${cooler.id}`,
-          {
-            method: "PUT",
-            token,
-            body: JSON.stringify({
-              name: name.trim(),
-              landmark: landmark.trim() || null,
-              filter_type: filterType.trim() || null,
-              filter_installed_at:
-                filterInstalledAt || null,
-              notes: notes.trim() || null,
-            }),
-          }
-        );
+      const formData = new FormData();
+      formData.append("_method", "PUT");
+      formData.append("name", name.trim());
 
-      onUpdated(response.data.cooler);
+      if (landmark.trim()) formData.append("landmark", landmark.trim());
+      if (filterType.trim()) formData.append("filter_type", filterType.trim());
+      if (filterInstalledAt) {
+        formData.append("filter_installed_at", filterInstalledAt);
+      }
+      if (notes.trim()) formData.append("notes", notes.trim());
+      if (photo) formData.append("photo", photo);
+
+      const response = await fetch(`${API_URL}/coolers/${cooler.id}`, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      const payload = (await response.json()) as UpdateResponse & {
+        errors?: Record<string, string[]>;
+      };
+
+      if (!response.ok) {
+        const validationMessage = payload.errors
+          ? Object.values(payload.errors).flat()[0]
+          : null;
+
+        throw new Error(
+          validationMessage ||
+            payload.message ||
+            "تعذر تحديث بيانات البرادة",
+        );
+      }
+
+      onUpdated(payload.data.cooler);
+      window.dispatchEvent(new Event("numayr:notifications-updated"));
     } catch (exception) {
-      if (exception instanceof ApiError) {
+      if (exception instanceof Error) {
         setError(exception.message);
       } else {
         setError("تعذر تحديث بيانات البرادة");
@@ -582,6 +756,7 @@ function EditCoolerModal({
   return (
     <>
       <button
+        type="button"
         onClick={onClose}
         className="fixed inset-0 z-[80] bg-[#05182c]/45 backdrop-blur-[3px]"
       />
@@ -590,12 +765,15 @@ function EditCoolerModal({
         initial={{ opacity: 0, y: 25, scale: 0.97 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 15, scale: 0.97 }}
-        className="fixed inset-x-4 top-1/2 z-[90] mx-auto max-w-[520px] -translate-y-1/2 overflow-hidden rounded-[28px] bg-white shadow-[0_30px_100px_rgba(5,24,44,.26)]"
+        className="fixed inset-x-4 top-1/2 z-[90] mx-auto max-h-[90vh] max-w-[560px] -translate-y-1/2 overflow-y-auto rounded-[28px] bg-white shadow-[0_30px_100px_rgba(5,24,44,.26)]"
       >
-        <div className="flex items-center justify-between bg-[#0d2b4e] px-5 py-4">
-          <h2 className="font-extrabold text-white">
-            تعديل البرادة
-          </h2>
+        <div className="sticky top-0 z-10 flex items-center justify-between bg-[#0d2b4e] px-5 py-4">
+          <div>
+            <p className="text-[10px] font-extrabold text-[#67dcf3]">
+              تعديل بيانات البرادة
+            </p>
+            <h2 className="mt-1 font-extrabold text-white">{cooler.name}</h2>
+          </div>
 
           <button
             type="button"
@@ -608,23 +786,45 @@ function EditCoolerModal({
 
         <form onSubmit={handleSubmit} className="p-5">
           <div className="space-y-4">
-            <Field
-              label="اسم البرادة"
-              value={name}
-              onChange={setName}
-            />
+            <Field label="اسم البرادة" value={name} onChange={setName} />
+            <Field label="أقرب معلم" value={landmark} onChange={setLandmark} />
+            <Field label="نوع الفلتر" value={filterType} onChange={setFilterType} />
 
-            <Field
-              label="أقرب معلم"
-              value={landmark}
-              onChange={setLandmark}
-            />
+            <div>
+              <label className="mb-2 block text-xs font-extrabold text-[#0d2b4e]">
+                صورة البرادة
+              </label>
 
-            <Field
-              label="نوع الفلتر"
-              value={filterType}
-              onChange={setFilterType}
-            />
+              <label className="flex cursor-pointer items-center gap-3 rounded-[17px] border-2 border-dashed border-[#d2e5ea] bg-[#f9fcfd] p-4 transition hover:border-[#16a6c9]">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-[#eaf8fb] text-[#16a6c9]">
+                  <ImagePlus className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-extrabold text-[#0d2b4e]">
+                    {photo ? "تم اختيار صورة جديدة" : "اختيار صورة من الجهاز"}
+                  </p>
+                  <p className="mt-1 text-[9px] font-bold text-[#91a3ae]">
+                    JPG / PNG / WebP — بحد أقصى 5MB
+                  </p>
+                </div>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handlePhoto}
+                  className="hidden"
+                />
+              </label>
+
+              {preview ? (
+                <div className="mt-3 overflow-hidden rounded-[17px] border border-[#e1ecef]">
+                  <img
+                    src={preview}
+                    alt="معاينة البرادة"
+                    className="h-[190px] w-full object-cover"
+                  />
+                </div>
+              ) : null}
+            </div>
 
             <div>
               <label className="mb-2 block text-xs font-extrabold text-[#0d2b4e]">
@@ -654,6 +854,10 @@ function EditCoolerModal({
               />
             </div>
 
+            <div className="rounded-[15px] border border-amber-100 bg-amber-50 px-4 py-3 text-[10px] font-bold leading-6 text-amber-700">
+              بعد تعديل بيانات البرادة سيتم إرسالها للإدارة للمراجعة مرة أخرى.
+            </div>
+
             {error ? (
               <div className="rounded-[14px] bg-red-50 px-4 py-3 text-xs font-bold text-red-600">
                 {error}
@@ -665,7 +869,7 @@ function EditCoolerModal({
               disabled={saving}
               className="flex h-[52px] w-full items-center justify-center rounded-[15px] bg-[#0d2b4e] text-xs font-extrabold text-white disabled:opacity-60"
             >
-              {saving ? "جاري الحفظ..." : "حفظ التعديلات"}
+              {saving ? "جاري الحفظ..." : "حفظ وإرسال للمراجعة"}
             </button>
           </div>
         </form>
@@ -792,7 +996,7 @@ function Field({
 }
 
 function formatDate(date: string) {
-  return new Intl.DateTimeFormat("ar-SA", {
+  return new Intl.DateTimeFormat("ar-EG-u-nu-latn", {
     year: "numeric",
     month: "short",
     day: "numeric",

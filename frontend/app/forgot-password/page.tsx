@@ -16,7 +16,7 @@ type ForgotResponse = {
   message: string;
   data?: {
     expires_in_minutes: number;
-    debug_otp?: string | null;
+
   };
 };
 
@@ -34,7 +34,7 @@ export default function ForgotPasswordPage() {
     setLoading(true);
 
     try {
-      const response = await apiRequest<ForgotResponse>(
+      await apiRequest<ForgotResponse>(
         "/auth/password/forgot",
         {
           method: "POST",
@@ -45,13 +45,6 @@ export default function ForgotPasswordPage() {
       );
 
       sessionStorage.setItem("numayr_reset_phone", phone.trim());
-
-      if (response.data?.debug_otp) {
-        sessionStorage.setItem(
-          "numayr_debug_otp",
-          response.data.debug_otp
-        );
-      }
 
       router.push("/verify-otp");
     } catch (exception) {

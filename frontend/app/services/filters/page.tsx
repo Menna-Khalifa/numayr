@@ -66,6 +66,8 @@ type Cooler = {
   name: string;
   photo: string | null;
   landmark: string | null;
+  approval_status?: "pending_review" | "approved" | "rejected" | "disabled";
+  rejection_reason?: string | null;
 };
 
 type ServiceResponse = {
@@ -283,6 +285,19 @@ export default function FiltersPage() {
       return;
     }
 
+    if ((cooler.approval_status ?? "approved") !== "approved") {
+      setError(
+        cooler.approval_status === "rejected"
+          ? cooler.rejection_reason
+            ? `لا يمكن إنشاء الطلب قبل تعديل البرادة وإعادة اعتمادها. السبب: ${cooler.rejection_reason}`
+            : "لا يمكن إنشاء الطلب قبل تعديل البرادة وإعادة اعتمادها."
+          : cooler.approval_status === "disabled"
+            ? "هذه البرادة موقوفة حاليًا ولا يمكن إنشاء طلب خدمة عليها."
+            : "البرادة ما زالت قيد مراجعة الإدارة. يمكنك استخدام الخدمات بعد اعتمادها."
+      );
+      return;
+    }
+
     if (!selectedAddress) {
       setError(
         "يجب تحديد عنوان البرادة قبل إنشاء الطلب"
@@ -432,6 +447,35 @@ export default function FiltersPage() {
             </div>
           </div>
         </section>
+
+        {(cooler.approval_status ?? "approved") !== "approved" ? (
+          <div
+            className={`mt-6 rounded-[20px] border px-5 py-4 ${
+              cooler.approval_status === "rejected"
+                ? "border-red-100 bg-red-50 text-red-700"
+                : cooler.approval_status === "disabled"
+                  ? "border-slate-200 bg-slate-100 text-slate-700"
+                  : "border-amber-100 bg-amber-50 text-amber-700"
+            }`}
+          >
+            <p className="text-sm font-extrabold">
+              {cooler.approval_status === "rejected"
+                ? "البرادة تحتاج إلى تعديل قبل طلب الخدمة"
+                : cooler.approval_status === "disabled"
+                  ? "البرادة موقوفة حاليًا"
+                  : "البرادة قيد مراجعة الإدارة"}
+            </p>
+
+            <p className="mt-1 text-xs font-bold leading-6">
+              {cooler.approval_status === "rejected"
+                ? cooler.rejection_reason ||
+                  "راجع بيانات البرادة ثم أعد إرسالها للمراجعة."
+                : cooler.approval_status === "disabled"
+                  ? "تواصل مع إدارة نمير إذا كنت بحاجة لإعادة تفعيل البرادة."
+                  : "بعد اعتماد الإدارة للبرادة سيصلك إشعار، وبعدها يمكنك إنشاء طلبات الخدمات عليها."}
+            </p>
+          </div>
+        ) : null}
 
         <form
           onSubmit={submitOrder}
@@ -771,12 +815,15 @@ export default function FiltersPage() {
                   type="submit"
                   disabled={
                     submitting ||
-                    !selectedOption
+                    !selectedOption ||
+                    (cooler.approval_status ?? "approved") !== "approved"
                   }
                   className="mt-5 flex h-[56px] w-full items-center justify-center gap-2 rounded-[17px] bg-[linear-gradient(110deg,#0d2b4e,#123f69_55%,#0e5875)] text-sm font-extrabold text-white shadow-[0_14px_30px_rgba(13,43,78,.17)] disabled:opacity-60"
                 >
                   {submitting ? (
                     <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/25 border-t-white" />
+                  ) : (cooler.approval_status ?? "approved") !== "approved" ? (
+                    <span>الخدمة متاحة بعد اعتماد البرادة</span>
                   ) : (
                     <>
                       <span>إنشاء الطلب</span>
