@@ -274,20 +274,20 @@ export default function AdminCoolerDetailPage() {
           />
 
           <div className="mt-4 grid gap-3">
-            <button type="button" disabled={Boolean(saving)} onClick={() => void review("approved")} className="flex h-12 items-center justify-center gap-2 rounded-[15px] bg-emerald-600 text-xs font-extrabold text-white transition hover:bg-emerald-700 disabled:opacity-50">
+            {cooler.approval_status !== "approved" ? (<button type="button" disabled={Boolean(saving)} onClick={() => void review("approved")} className="flex h-12 items-center justify-center gap-2 rounded-[15px] bg-emerald-600 text-xs font-extrabold text-white transition hover:bg-emerald-700 disabled:opacity-50">
               <CheckCircle2 className="h-4 w-4" />
               {saving === "approved" ? "جاري الاعتماد..." : "اعتماد البرادة"}
-            </button>
+            </button>) : null}
 
-            <button type="button" disabled={Boolean(saving)} onClick={() => void review("rejected")} className="flex h-12 items-center justify-center gap-2 rounded-[15px] bg-red-50 text-xs font-extrabold text-red-600 transition hover:bg-red-100 disabled:opacity-50">
+            {cooler.approval_status !== "rejected" ? (<button type="button" disabled={Boolean(saving)} onClick={() => void review("rejected")} className="flex h-12 items-center justify-center gap-2 rounded-[15px] bg-red-50 text-xs font-extrabold text-red-600 transition hover:bg-red-100 disabled:opacity-50">
               <XCircle className="h-4 w-4" />
               {saving === "rejected" ? "جاري الإرسال..." : "رفض وإرسال السبب"}
-            </button>
+            </button>) : null}
 
-            <button type="button" disabled={Boolean(saving)} onClick={() => void review("disabled")} className="flex h-12 items-center justify-center gap-2 rounded-[15px] bg-slate-100 text-xs font-extrabold text-slate-600 transition hover:bg-slate-200 disabled:opacity-50">
+            {cooler.approval_status !== "disabled" ? (<button type="button" disabled={Boolean(saving)} onClick={() => void review("disabled")} className="flex h-12 items-center justify-center gap-2 rounded-[15px] bg-slate-100 text-xs font-extrabold text-slate-600 transition hover:bg-slate-200 disabled:opacity-50">
               <ShieldOff className="h-4 w-4" />
               {saving === "disabled" ? "جاري الإيقاف..." : "إيقاف البرادة"}
-            </button>
+            </button>) : null}
           </div>
 
           {cooler.approval_status === "pending_review" ? (

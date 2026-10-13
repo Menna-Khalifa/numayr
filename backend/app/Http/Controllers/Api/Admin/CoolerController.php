@@ -142,6 +142,21 @@ class CoolerController extends Controller
             ->findOrFail($cooler);
 
         $approvalStatus = $validated['approval_status'];
+
+        if ($coolerModel->approval_status === $approvalStatus) {
+            $coolerModel->load([
+                'user:id,name,email,phone,is_active',
+                'address',
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'لم يتغير قرار مراجعة البرادة',
+                'data' => [
+                    'cooler' => $this->presentCooler($coolerModel),
+                ],
+            ]);
+        }
         $reason = trim((string) ($validated['reason'] ?? ''));
 
         $coolerModel->approval_status = $approvalStatus;
