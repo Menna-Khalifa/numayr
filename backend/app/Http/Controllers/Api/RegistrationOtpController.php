@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Notification;
 use App\Models\PasswordResetOtp;
 use App\Models\User;
 use App\Services\Sms\SmsService;
@@ -69,6 +70,24 @@ class RegistrationOtpController extends Controller
             $record->update(['verified_at' => now()]);
 
             $user->update(['is_active' => true]);
+
+            User::query()
+                ->where('role', 'admin')
+                ->where('is_active', true)
+                ->pluck('id')
+                ->each(function (int $adminId) use ($user) {
+                    Notification::query()->create([
+                        'user_id' => $adminId,
+                        'type' => 'customer_registration',
+                        'title' => 'عميل جديد انضم إلى نمير',
+                        'body' => $user->name.' أكمل تسجيل حسابه بنجاح.',
+                        'data' => [
+                            'customer_id' => $user->id,
+                        ],
+                        'channels' => ['in_app'],
+                        'sent_at' => now(),
+                    ]);
+                });
 
             $token = $user->createToken('numayr-web')->plainTextToken;
 

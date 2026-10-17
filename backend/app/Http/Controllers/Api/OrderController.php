@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 
 use App\Models\Order;
+use App\Models\User;
 
 use App\Models\Service;
 
@@ -965,6 +966,28 @@ class OrderController extends Controller
 
         }
 
+        User::query()
+            ->where('role', 'admin')
+            ->where('is_active', true)
+            ->pluck('id')
+            ->each(function (int $adminId) use ($order, $user) {
+                \App\Models\Notification::query()->create([
+                    'user_id' => $adminId,
+                    'type' => 'order_status',
+                    'title' => 'طلب خدمة جديد',
+                    'body' => $user->name.' أرسل طلب '.$order->service_name.' برقم '.$order->order_number,
+                    'data' => [
+                        'order_id' => $order->id,
+                        'order_number' => $order->order_number,
+                        'cooler_id' => $order->cooler_id,
+                        'customer_id' => $user->id,
+                        'status' => $order->status,
+                    ],
+                    'channels' => ['in_app'],
+                    'sent_at' => now(),
+                ]);
+            });
+
         $order->load([
 
             'cooler',
@@ -1130,6 +1153,29 @@ class OrderController extends Controller
         });
 
         $orderModel->refresh();
+
+        User::query()
+            ->where('role', 'admin')
+            ->where('is_active', true)
+            ->pluck('id')
+            ->each(function (int $adminId) use ($orderModel, $user, $validated) {
+                \App\Models\Notification::query()->create([
+                    'user_id' => $adminId,
+                    'type' => 'order_status',
+                    'title' => 'تم إلغاء طلب خدمة',
+                    'body' => $user->name.' ألغى الطلب رقم '.$orderModel->order_number,
+                    'data' => [
+                        'order_id' => $orderModel->id,
+                        'order_number' => $orderModel->order_number,
+                        'cooler_id' => $orderModel->cooler_id,
+                        'customer_id' => $user->id,
+                        'status' => $orderModel->status,
+                        'reason' => $validated['reason'] ?? null,
+                    ],
+                    'channels' => ['in_app'],
+                    'sent_at' => now(),
+                ]);
+            });
 
         $orderModel->load([
 

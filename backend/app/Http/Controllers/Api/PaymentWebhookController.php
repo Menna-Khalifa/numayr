@@ -8,6 +8,7 @@ use App\Models\Order;
 use App\Models\Payment;
 use App\Models\PaymentWebhookEvent;
 use App\Models\Subscription;
+use App\Services\Notifications\AdminPaymentNotificationService;
 use App\Services\Notifications\NotificationService;
 use App\Services\Payments\PaymentGatewayManager;
 use Illuminate\Database\QueryException;
@@ -492,6 +493,13 @@ class PaymentWebhookController extends Controller
         Payment $payment,
         string $status
     ): void {
+        try {
+            app(AdminPaymentNotificationService::class)
+                ->notify($payment, $status);
+        } catch (Throwable $exception) {
+            report($exception);
+        }
+
         try {
             if ($payment->order_id !== null) {
                 $this->sendOrderPaymentNotification(

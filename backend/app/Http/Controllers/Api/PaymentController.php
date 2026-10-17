@@ -5,6 +5,7 @@ use App\Http\Resources\PaymentResource;
 use App\Models\Invoice;
 use App\Models\Order;
 use App\Models\Payment;
+use App\Services\Notifications\AdminPaymentNotificationService;
 use App\Services\Notifications\NotificationService;
 use App\Services\Payments\PaymentGatewayManager;
 use Illuminate\Http\JsonResponse;
@@ -351,6 +352,14 @@ class PaymentController extends Controller
             ];
         });
         $paymentModel = $result['payment'];
+
+        try {
+            app(AdminPaymentNotificationService::class)
+                ->notify($paymentModel->fresh(), $result['status']);
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
+
         $this->sendOrderPaymentNotification(
             $paymentModel->fresh(),
             $result['status']

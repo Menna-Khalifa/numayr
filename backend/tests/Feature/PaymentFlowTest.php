@@ -207,6 +207,16 @@ class PaymentFlowTest extends TestCase
     public function test_same_webhook_event_id_is_idempotent_even_with_different_payload(): void
     {
         $user = User::factory()->create();
+
+        $activeAdmin = User::factory()->create([
+            'role' => 'admin',
+            'is_active' => true,
+        ]);
+
+        $inactiveAdmin = User::factory()->create([
+            'role' => 'admin',
+            'is_active' => false,
+        ]);
         $order = $this->createOrder($user);
 
         Payment::create([
@@ -272,6 +282,43 @@ class PaymentFlowTest extends TestCase
         ]);
 
         $this->assertDatabaseCount('invoices', 1);
+
+        $adminNotification = Notification::query()
+            ->where('user_id', $activeAdmin->id)
+            ->where('type', 'payment')
+            ->sole();
+
+        $this->assertSame(
+            Payment::STATUS_PAID,
+            $adminNotification->data['status']
+        );
+
+        $this->assertSame(
+            ['in_app'],
+            $adminNotification->channels
+        );
+
+        $this->assertSame(
+            0,
+            Notification::where('user_id', $inactiveAdmin->id)->count()
+        );
+
+        $this->assertSame(
+            1,
+            Notification::query()
+                ->where('user_id', $activeAdmin->id)
+                ->where('type', 'payment')
+                ->count()
+        );
+
+        $this->assertSame(
+            1,
+            Notification::query()
+                ->where('user_id', $user->id)
+                ->where('type', 'payment')
+                ->where('data->status', Payment::STATUS_PAID)
+                ->count()
+        );
     }
 
     public function test_failed_secondary_attempt_does_not_override_paid_order_status(): void
@@ -415,6 +462,96 @@ class PaymentFlowTest extends TestCase
         );
     }
 
+    public function test_manual_paid_payment_notifies_active_admin_once(): void
+    {
+        $customer = User::factory()->create();
+
+        $activeAdmin = User::factory()->create([
+            'role' => 'admin',
+            'is_active' => true,
+        ]);
+
+        $inactiveAdmin = User::factory()->create([
+            'role' => 'admin',
+            'is_active' => false,
+        ]);
+
+        $order = $this->createOrder(
+            $customer,
+            Payment::STATUS_PENDING
+        );
+
+        $payment = Payment::create([
+            'order_id' => $order->id,
+            'provider' => 'fake',
+            'method' => 'card',
+            'status' => Payment::STATUS_PENDING,
+            'amount' => 115.00,
+            'currency' => 'SAR',
+            'provider_reference' => 'FAKE-MANUAL-ADMIN-PAID',
+        ]);
+
+        Sanctum::actingAs($activeAdmin);
+
+        $url = "/api/v1/admin/orders/{$order->id}/payments/{$payment->id}/transition";
+
+        $this->patchJson($url, [
+            'status' => Payment::STATUS_PAID,
+            'transaction_id' => 'TX-MANUAL-ADMIN-PAID',
+        ])->assertOk();
+
+        $this->assertSame(
+            Payment::STATUS_PAID,
+            $payment->fresh()->status
+        );
+
+        $notification = Notification::query()
+            ->where('user_id', $activeAdmin->id)
+            ->where('type', 'payment')
+            ->where('data->payment_id', $payment->id)
+            ->sole();
+
+        $this->assertSame(
+            'تم استلام دفعة جديدة',
+            $notification->title
+        );
+
+        $this->assertSame(
+            Payment::STATUS_PAID,
+            $notification->data['status']
+        );
+
+        $this->assertSame(
+            $order->id,
+            $notification->data['order_id']
+        );
+
+        $this->assertSame(
+            ['in_app'],
+            $notification->channels
+        );
+
+        $this->assertSame(
+            0,
+            Notification::query()
+                ->where('user_id', $inactiveAdmin->id)
+                ->count()
+        );
+
+        $this->patchJson($url, [
+            'status' => Payment::STATUS_PAID,
+        ])->assertUnprocessable();
+
+        $this->assertSame(
+            1,
+            Notification::query()
+                ->where('user_id', $activeAdmin->id)
+                ->where('type', 'payment')
+                ->where('data->payment_id', $payment->id)
+                ->where('data->status', Payment::STATUS_PAID)
+                ->count()
+        );
+    }
     private function createOrder(
         User $user,
         string $paymentStatus = Payment::STATUS_PENDING

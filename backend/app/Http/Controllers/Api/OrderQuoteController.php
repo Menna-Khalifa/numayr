@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Notification;
 use App\Models\Order;
+use App\Models\User;
 use App\Models\Payment;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -31,6 +33,28 @@ class OrderQuoteController extends Controller
             return $orderModel;
         });
 
+        User::query()
+            ->where('role', 'admin')
+            ->where('is_active', true)
+            ->pluck('id')
+            ->each(function (int $adminId) use ($orderModel) {
+                Notification::query()->create([
+                    'user_id' => $adminId,
+                    'type' => 'order_status',
+                    'title' => 'تمت الموافقة على عرض السعر',
+                    'body' => 'وافق العميل على عرض السعر للطلب رقم '.$orderModel->order_number,
+                    'data' => [
+                        'order_id' => $orderModel->id,
+                        'order_number' => $orderModel->order_number,
+                        'customer_id' => $orderModel->user_id,
+                        'quote_status' => $orderModel->quote_status,
+                        'total_amount' => $orderModel->total_amount,
+                        'currency' => $orderModel->currency,
+                    ],
+                    'channels' => ['in_app'],
+                    'sent_at' => now(),
+                ]);
+            });
         return response()->json([
             'success' => true,
             'message' => 'تمت الموافقة على عرض السعر ويمكنك الآن إتمام الدفع',
@@ -59,6 +83,28 @@ class OrderQuoteController extends Controller
             return $orderModel;
         });
 
+        User::query()
+            ->where('role', 'admin')
+            ->where('is_active', true)
+            ->pluck('id')
+            ->each(function (int $adminId) use ($orderModel) {
+                Notification::query()->create([
+                    'user_id' => $adminId,
+                    'type' => 'order_status',
+                    'title' => 'تم رفض عرض السعر',
+                    'body' => 'رفض العميل عرض السعر للطلب رقم '.$orderModel->order_number,
+                    'data' => [
+                        'order_id' => $orderModel->id,
+                        'order_number' => $orderModel->order_number,
+                        'customer_id' => $orderModel->user_id,
+                        'quote_status' => $orderModel->quote_status,
+                        'total_amount' => $orderModel->total_amount,
+                        'currency' => $orderModel->currency,
+                    ],
+                    'channels' => ['in_app'],
+                    'sent_at' => now(),
+                ]);
+            });
         return response()->json([
             'success' => true,
             'message' => 'تم رفض عرض السعر بنجاح',
