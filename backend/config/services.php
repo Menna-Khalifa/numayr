@@ -34,6 +34,15 @@ return [
         ],
     ],
 
+    'authentica' => [
+        'api_key' => env('AUTHENTICA_API_KEY'),
+        'base_url' => env(
+            'AUTHENTICA_BASE_URL',
+            'https://api.authentica.sa'
+        ),
+        'channel' => 'sms',
+        'timeout' => 15,
+    ],
     'sms' => [
         'driver' => env('SMS_DRIVER', 'log'),
         'from' => env('SMS_FROM', 'NUMAYR'),

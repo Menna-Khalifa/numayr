@@ -37,6 +37,34 @@ type MeResponse = {
   };
 };
 
+type DashboardCooler = {
+  id: number;
+  name: string;
+  approval_status?: string | null;
+  health_score?: number | null;
+  landmark?: string | null;
+  address?: { label?: string | null } | null;
+};
+
+type DashboardCoolersResponse = {
+  success: true;
+  data: { coolers: DashboardCooler[] };
+};
+type DashboardNotification = {
+  id: number;
+  title: string;
+  body: string;
+  read_at?: string | null;
+  created_at?: string | null;
+};
+
+type DashboardNotificationsResponse = {
+  success: true;
+  data: {
+    notifications: { data: DashboardNotification[] };
+    unread_count: number;
+  };
+};
 const services = [
   {
     title: "تعبئة المياه",
@@ -70,6 +98,13 @@ export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [coolers, setCoolers] = useState<DashboardCooler[]>([]);
+  const [coolersLoading, setCoolersLoading] = useState(true);
+  const [coolersError, setCoolersError] = useState("");
+  const [notifications, setNotifications] = useState<DashboardNotification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notificationsLoading, setNotificationsLoading] = useState(true);
+  const [notificationsError, setNotificationsError] = useState("");
 
   useEffect(() => {
     const token = getAuthToken();
@@ -108,6 +143,97 @@ export default function DashboardPage() {
     void loadUser();
   }, [router]);
 
+  useEffect(() => {
+    const token = getAuthToken();
+
+    if (!token) {
+      setCoolersLoading(false);
+      return;
+    }
+
+    let active = true;
+
+    async function loadCoolers() {
+      try {
+        const response = await apiRequest<DashboardCoolersResponse>(
+          "/coolers",
+          { token }
+        );
+
+        if (active) {
+          setCoolers(response.data.coolers ?? []);
+        }
+      } catch (exception) {
+        if (active) {
+          setCoolersError(
+            exception instanceof ApiError
+              ? exception.message
+              : "تعذر تحميل البرادات"
+          );
+        }
+      } finally {
+        if (active) {
+          setCoolersLoading(false);
+        }
+      }
+    }
+
+    void loadCoolers();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+  useEffect(() => {
+    const token = getAuthToken();
+
+    if (!token) {
+      setNotificationsLoading(false);
+      return;
+    }
+
+    let active = true;
+
+    async function loadNotifications() {
+      try {
+        const response = await apiRequest<DashboardNotificationsResponse>(
+          "/notifications?per_page=3",
+          { token }
+        );
+
+        if (!active) return;
+
+        setNotifications(response.data.notifications.data ?? []);
+        setUnreadCount(response.data.unread_count ?? 0);
+        setNotificationsError("");
+      } catch (exception) {
+        if (!active) return;
+
+        setNotificationsError(
+          exception instanceof ApiError
+            ? exception.message
+            : "تعذر تحميل الإشعارات"
+        );
+      } finally {
+        if (active) setNotificationsLoading(false);
+      }
+    }
+
+    void loadNotifications();
+
+    window.addEventListener(
+      "numayr:notifications-updated",
+      loadNotifications
+    );
+
+    return () => {
+      active = false;
+      window.removeEventListener(
+        "numayr:notifications-updated",
+        loadNotifications
+      );
+    };
+  }, []);
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#f4f9fb]">
@@ -302,28 +428,73 @@ export default function DashboardPage() {
               </Link>
             </div>
 
-            <div className="mt-7 flex min-h-[190px] flex-col items-center justify-center rounded-[22px] border border-dashed border-[#d6e6eb] bg-[#f9fcfd] px-5 text-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-[18px] bg-[#eaf8fb]">
-                <Gauge className="h-6 w-6 text-[#16a6c9]" />
-              </div>
+            <div className="mt-6">
+              {coolersLoading ? (
+                <div className="grid min-h-[190px] place-items-center">
+                  <span className="h-9 w-9 animate-spin rounded-full border-[3px] border-[#d8e8ec] border-t-[#16a6c9]" />
+                </div>
+              ) : coolersError ? (
+                <div className="rounded-[18px] border border-red-100 bg-red-50 p-5 text-sm font-bold text-red-600">
+                  {coolersError}
+                </div>
+              ) : coolers.length === 0 ? (
+                <div className="flex min-h-[190px] flex-col items-center justify-center rounded-[22px] border border-dashed border-[#d6e6eb] bg-[#f9fcfd] px-5 text-center">
+                  <Gauge className="h-9 w-9 text-[#16a6c9]" />
+                  <h3 className="mt-4 text-sm font-extrabold text-[#0d2b4e]">
+                    لا توجد برادات مسجلة حتى الآن
+                  </h3>
+                  <Link href="/coolers" className="mt-4 text-xs font-extrabold text-[#16a6c9]">
+                    إضافة برادة
+                  </Link>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="rounded-xl bg-[#edf9fb] px-4 py-2 text-xs font-extrabold text-[#0d2b4e]">
+                      إجمالي البرادات: {coolers.length}
+                    </span>
+                    <span className="rounded-xl bg-emerald-50 px-4 py-2 text-xs font-extrabold text-emerald-700">
+                      المعتمدة: {coolers.filter((c) => c.approval_status === "approved").length}
+                    </span>
+                    <span className="rounded-xl bg-amber-50 px-4 py-2 text-xs font-extrabold text-amber-700">
+                      قيد المراجعة: {coolers.filter((c) => c.approval_status === "pending_review").length}
+                    </span>
+                  </div>
 
-              <h3 className="mt-4 text-sm font-extrabold text-[#0d2b4e]">
-                سنعرض حالة براداتك هنا
-              </h3>
+                  <div className="space-y-3">
+                    {coolers.slice(0, 3).map((cooler) => (
+                      <Link
+                        key={cooler.id}
+                        href={`/coolers/${cooler.id}`}
+                        className="flex items-center justify-between gap-3 rounded-[18px] border border-[#e1edf1] bg-[#f9fcfd] p-4 transition hover:border-[#16a6c9]"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-extrabold text-[#0d2b4e]">
+                            {cooler.name}
+                          </p>
+                          <p className="mt-1 text-xs font-bold text-[#8294a3]">
+                            {cooler.landmark || cooler.address?.label || "الموقع غير محدد"}
+                          </p>
+                        </div>
 
-              <p className="mt-2 max-w-sm text-xs font-bold leading-6 text-[#8799a7]">
-                بمجرد إضافة براداتك ستظهر حالتها وآخر تعبئة وصيانة والفلاتر في هذا القسم.
-              </p>
-
-              <Link
-                href="/coolers"
-                className="mt-4 text-xs font-extrabold text-[#16a6c9]"
-              >
-                الانتقال إلى براداتي
-              </Link>
+                        <span className="shrink-0 text-[11px] font-extrabold text-[#16a6c9]">
+                          {cooler.approval_status === "approved"
+                            ? "معتمدة"
+                            : cooler.approval_status === "pending_review"
+                              ? "قيد المراجعة"
+                              : cooler.approval_status === "rejected"
+                                ? "تحتاج تعديل"
+                                : cooler.approval_status === "disabled"
+                                  ? "موقوفة"
+                                  : "غير محددة"}
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-
           <div className="rounded-[26px] border border-[#e1edf1] bg-white p-5 shadow-[0_12px_38px_rgba(13,43,78,.045)] sm:p-6">
             <div className="flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-[15px] bg-[#eef8fb]">
@@ -341,22 +512,65 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="mt-7 flex min-h-[190px] flex-col items-center justify-center text-center">
-              <div className="relative">
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#f2f8fa]">
-                  <BellRing className="h-6 w-6 text-[#9aabb6]" />
+            <div className="mt-6">
+              {notificationsLoading ? (
+                <div className="grid min-h-[190px] place-items-center">
+                  <span className="h-9 w-9 animate-spin rounded-full border-[3px] border-[#d8e8ec] border-t-[#16a6c9]" />
                 </div>
+              ) : notificationsError ? (
+                <div className="rounded-[18px] border border-red-100 bg-red-50 p-4 text-xs font-bold text-red-600">
+                  {notificationsError}
+                </div>
+              ) : notifications.length === 0 ? (
+                <div className="flex min-h-[190px] flex-col items-center justify-center text-center">
+                  <BellRing className="h-9 w-9 text-[#9aabb6]" />
+                  <p className="mt-4 text-sm font-extrabold text-[#0d2b4e]">
+                    لا توجد إشعارات حتى الآن
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {unreadCount > 0 && (
+                    <p className="text-xs font-extrabold text-[#16a6c9]">
+                      لديك {unreadCount} إشعار غير مقروء
+                    </p>
+                  )}
 
-                <span className="absolute -right-1 top-0 h-3 w-3 rounded-full border-2 border-white bg-[#16a6c9]" />
-              </div>
+                  {notifications.map((notification) => (
+                    <Link
+                      key={notification.id}
+                      href="/notifications"
+                      className={`block rounded-[17px] border p-4 transition hover:border-[#16a6c9] ${
+                        notification.read_at
+                          ? "border-[#e1edf1] bg-white"
+                          : "border-[#bfe5ed] bg-[#f0fbfd]"
+                      }`}
+                    >
+                      <div className="flex items-start gap-2">
+                        {!notification.read_at && (
+                          <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[#16a6c9]" />
+                        )}
 
-              <p className="mt-4 text-sm font-extrabold text-[#0d2b4e]">
-                لا توجد تنبيهات جديدة
-              </p>
+                        <div className="min-w-0">
+                          <p className="text-xs font-extrabold text-[#0d2b4e]">
+                            {notification.title}
+                          </p>
+                          <p className="mt-1 line-clamp-2 text-[11px] font-bold leading-5 text-[#8294a3]">
+                            {notification.body}
+                          </p>
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
 
-              <p className="mt-2 text-xs font-bold leading-6 text-[#8799a7]">
-                سنخبرك بأي تحديث مهم على خدماتك وطلباتك.
-              </p>
+                  <Link
+                    href="/notifications"
+                    className="block pt-2 text-center text-xs font-extrabold text-[#16a6c9]"
+                  >
+                    عرض جميع الإشعارات
+                  </Link>
+                </div>
+              )}
             </div>
           </div>
         </section>
