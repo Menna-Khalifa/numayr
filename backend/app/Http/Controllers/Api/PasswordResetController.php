@@ -36,35 +36,56 @@ $phone = \App\Support\SaudiPhone::normalize($inputPhone) ?? $inputPhone;
         if (! $user || ! $user->is_active) {
             return response()->json([
                 'success' => true,
-                'message' => 'إذا كان رقم الجوال مسجلًا لدينا فسيتم إرسال رمز التحقق',
+                'message' => 'إذا كان رقم الجوال مسجلًا لدينا، فقد يتم إرسال رمز التحقق وفقًا لفترة الانتظار.',
+                'data' => [
+                    'expires_in_minutes' => 10,
+                ],
             ]);
         }
 
-        PasswordResetOtp::query()
-            ->where('user_id', $user->id)
-            ->where('purpose', 'password_reset')
-            ->whereNull('verified_at')
-            ->delete();
+        \Illuminate\Support\Facades\DB::transaction(function () use ($user, $smsService) {
+            User::query()
+                ->whereKey($user->id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        $otp = (string) random_int(1000, 9999);
+            $latest = PasswordResetOtp::query()
+                ->where('user_id', $user->id)
+                ->where('purpose', 'password_reset')
+                ->whereNull('verified_at')
+                ->latest('id')
+                ->first();
 
-        PasswordResetOtp::create([
-            'user_id' => $user->id,
-            'channel' => 'sms',
-            'purpose' => 'password_reset',
-            'otp_hash' => Hash::make($otp),
-            'expires_at' => now()->addMinutes(10),
-            'attempts' => 0,
-        ]);
+            if (
+                $latest &&
+                $latest->created_at->greaterThan(now()->subMinute())
+            ) {
+                return;
+            }
 
-        $smsService->sendOtp(
-            $user->phone,
-            $otp
-        );
 
+            PasswordResetOtp::query()
+                ->where('user_id', $user->id)
+                ->where('purpose', 'password_reset')
+                ->whereNull('verified_at')
+                ->delete();
+
+            $otp = (string) random_int(1000, 9999);
+
+            PasswordResetOtp::create([
+                'user_id' => $user->id,
+                'channel' => 'sms',
+                'purpose' => 'password_reset',
+                'otp_hash' => Hash::make($otp),
+                'expires_at' => now()->addMinutes(10),
+                'attempts' => 0,
+            ]);
+
+            $smsService->sendOtp($user->phone, $otp);
+        });
         return response()->json([
             'success' => true,
-            'message' => 'تم إرسال رمز التحقق بنجاح',
+            'message' => 'إذا كان رقم الجوال مسجلًا لدينا، فقد يتم إرسال رمز التحقق وفقًا لفترة الانتظار.',
             'data' => [
                 'expires_in_minutes' => 10,
 

@@ -26,9 +26,15 @@ class Order extends Model
 
     public const QUOTE_STATUS_REJECTED = 'rejected';
 
+    public function technician(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'technician_id');
+    }
+
     protected $fillable = [
         'order_number',
         'user_id',
+        'technician_id',
         'cooler_id',
         'service_id',
         'subscription_id',

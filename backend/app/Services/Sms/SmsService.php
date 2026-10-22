@@ -33,6 +33,10 @@ class SmsService
 
     public function sendOtp(string $phone, string $otp): void
     {
+        if (config('services.sms.driver', 'log') === 'authentica') {
+            app(AuthenticaOtpSender::class)->sendOtp($phone, $otp);
+            return;
+        }
         $this->send(
             $phone,
             "رمز التحقق الخاص بك في نمير هو: {$otp}"
