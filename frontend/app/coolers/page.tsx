@@ -514,8 +514,6 @@ function AddCoolerModal({
   const [step, setStep] = useState(1);
   const [name, setName] = useState("");
   const [landmark, setLandmark] = useState("");
-  const [latitude, setLatitude] = useState("");
-  const [longitude, setLongitude] = useState("");
   const [filterType, setFilterType] = useState("");
   const [filterInstalledAt, setFilterInstalledAt] = useState("");
   const [notes, setNotes] = useState("");
@@ -593,8 +591,6 @@ function AddCoolerModal({
       formData.append("name", name.trim());
 
       if (landmark.trim()) formData.append("landmark", landmark.trim());
-      if (latitude) formData.append("latitude", latitude);
-      if (longitude) formData.append("longitude", longitude);
       if (filterType.trim()) formData.append("filter_type", filterType.trim());
       if (filterInstalledAt) formData.append("filter_installed_at", filterInstalledAt);
       if (notes.trim()) formData.append("notes", notes.trim());
@@ -694,12 +690,8 @@ function AddCoolerModal({
 
             {step === 2 ? (
               <div className="space-y-5">
-                <StepTitle icon={<MapPin className="h-5 w-5" />} title="موقع البرادة" description="أضف أقرب معلم أو الإحداثيات إن كانت متاحة." />
-                <InputField label="أقرب معلم" value={landmark} onChange={setLandmark} placeholder="مثال: بجوار المدخل الرئيسي" />
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <InputField label="خط العرض" value={latitude} onChange={setLatitude} placeholder="24.7136" dir="ltr" />
-                  <InputField label="خط الطول" value={longitude} onChange={setLongitude} placeholder="46.6753" dir="ltr" />
-                </div>
+                <StepTitle icon={<MapPin className="h-5 w-5" />} title="موقع البرادة" description="اكتب وصف عنوان البرادة بوضوح. ربط اختيار العنوان عبر هدهد يحتاج تفعيل واجهة الخدمة." />
+                <InputField label="عنوان البرادة أو المعلم القريب" value={landmark} onChange={setLandmark} placeholder="المدينة، الحي، الشارع، أقرب معلم" />
               </div>
             ) : null}
 
