@@ -412,24 +412,6 @@ export default function CoolerDetailsPage() {
               />
 
               <DetailRow
-                label="خط العرض"
-                value={
-                  cooler.latitude !== null
-                    ? String(cooler.latitude)
-                    : "غير محدد"
-                }
-              />
-
-              <DetailRow
-                label="خط الطول"
-                value={
-                  cooler.longitude !== null
-                    ? String(cooler.longitude)
-                    : "غير محدد"
-                }
-              />
-
-              <DetailRow
                 label="نوع الفلتر"
                 value={cooler.filter_type || "غير محدد"}
               />
