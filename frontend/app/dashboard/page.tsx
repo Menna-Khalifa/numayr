@@ -147,7 +147,7 @@ export default function DashboardPage() {
     const token = getAuthToken();
 
     if (!token) {
-      setCoolersLoading(false);
+      queueMicrotask(() => setCoolersLoading(false));
       return;
     }
 
@@ -188,7 +188,7 @@ export default function DashboardPage() {
     const token = getAuthToken();
 
     if (!token) {
-      setNotificationsLoading(false);
+      queueMicrotask(() => setNotificationsLoading(false));
       return;
     }
 
