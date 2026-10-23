@@ -156,7 +156,19 @@ class MoyasarGateway implements PaymentGateway
         string $payload,
         ?string $signature
     ): bool {
-        return false;
+        // Moyasar includes the configured shared secret as secret_token
+        // inside the JSON webhook body, rather than an HMAC header.
+        $secret = config('services.moyasar.webhook_secret');
+        if (!is_string($secret) || $secret === '') {
+            return false;
+        }
+
+        $event = json_decode($payload, true);
+        if (!is_array($event) || !is_string($event['secret_token'] ?? null)) {
+            return false;
+        }
+
+        return hash_equals($secret, $event['secret_token']);
     }
 
     public function parseWebhook(array $payload): array
