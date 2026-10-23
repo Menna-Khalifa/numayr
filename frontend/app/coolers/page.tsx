@@ -96,8 +96,10 @@ export default function CoolersPage() {
     const token = getAuthToken();
 
     if (!token) {
-      setPageError("انتهت جلسة الدخول");
-      setLoading(false);
+      queueMicrotask(() => {
+        setPageError("انتهت جلسة الدخول");
+        setLoading(false);
+      });
       return;
     }
 
@@ -524,12 +526,12 @@ function AddCoolerModal({
 
   useEffect(() => {
     if (!photo) {
-      setPreview("");
+      queueMicrotask(() => setPreview(""));
       return;
     }
 
     const url = URL.createObjectURL(photo);
-    setPreview(url);
+    queueMicrotask(() => setPreview(url));
 
     return () => URL.revokeObjectURL(url);
   }, [photo]);
