@@ -62,7 +62,7 @@ class AuthController extends Controller
                 'channel' => 'sms',
                 'purpose' => 'registration',
                 'otp_hash' => \Illuminate\Support\Facades\Hash::make($otp),
-                'expires_at' => now()->addMinutes(10),
+                'expires_at' => now()->addMinutes((int) config('services.authentica.otp_ttl_minutes', 5)),
                 'attempts' => 0,
             ]);
 
