@@ -114,7 +114,8 @@ export default function AdminCustomerDetailPage() {
   }, [customerId]);
 
   useEffect(() => {
-    void loadCustomer();
+    const scheduled = queueMicrotask(() => { void loadCustomer(); });
+    void scheduled;
   }, [loadCustomer]);
 
   async function toggleStatus() {
