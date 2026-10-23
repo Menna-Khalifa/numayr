@@ -41,7 +41,7 @@ export default function RegistrationVerifyPage() {
       return;
     }
 
-    setPhone(stored);
+    queueMicrotask(() => setPhone(stored));
   }, [router]);
 
   useEffect(() => {
