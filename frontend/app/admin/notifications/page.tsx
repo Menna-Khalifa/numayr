@@ -15,7 +15,7 @@ export default function Page(){
  const router=useRouter();
  const [items,setItems]=useState<N[]>([]);const [unread,setUnread]=useState(0);const [loading,setLoading]=useState(true);const [markingAll,setMarkingAll]=useState(false);const [readingId,setReadingId]=useState<number|null>(null);const [filter,setFilter]=useState<"all"|"unread"|"read">("all");const [search,setSearch]=useState("");const [error,setError]=useState("");
  const load=useCallback(async()=>{const token=getAuthToken();if(!token)return;setLoading(true);setError("");try{const r=await apiRequest<Response>("/notifications?per_page=100",{token});setItems(r.data.notifications.data||[]);setUnread(Number(r.data.unread_count||0))}catch(e){setError(e instanceof ApiError?e.message:"تعذر تحميل الإشعارات")}finally{setLoading(false)}},[]);
- useEffect(()=>{void load()},[load]);
+ useEffect(()=>{queueMicrotask(()=>{void load()})},[load]);
 
  async function markAll(){
  if(markingAll)return;
