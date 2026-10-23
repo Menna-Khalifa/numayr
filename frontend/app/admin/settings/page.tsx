@@ -56,7 +56,7 @@ export default function AdminSettingsPage() {
     } finally { setLoading(false); }
   },[]);
 
-  useEffect(()=>{ void load(); },[load]);
+  useEffect(()=>{queueMicrotask(()=>{void load()})},[load]);
 
   const tax = useMemo(()=>settings.find(x=>x.key==="tax_rate"),[settings]);
   const currency = useMemo(()=>settings.find(x=>x.key==="currency"),[settings]);
