@@ -195,7 +195,8 @@ export default function AdminOrderDetailPage() {
   }, [orderId]);
 
   useEffect(() => {
-    void loadOrder();
+    const scheduled = queueMicrotask(() => { void loadOrder(); });
+    void scheduled;
   }, [loadOrder]);
 
   const allowedTransitions = useMemo(() => {
