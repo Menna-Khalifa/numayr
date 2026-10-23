@@ -123,7 +123,8 @@ export default function AdminCoolersPage() {
   }, [page, search, status]);
 
   useEffect(() => {
-    void load();
+    const scheduled = queueMicrotask(() => { void load(); });
+    void scheduled;
   }, [load]);
 
   return (
