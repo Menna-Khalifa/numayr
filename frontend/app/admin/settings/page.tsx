@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { LucideIcon } from "lucide-react";
 
 type Setting = {
   id: number; key: string; value: string | number | boolean | null;
@@ -44,8 +45,8 @@ export default function AdminSettingsPage() {
     setLoading(true); setError("");
     try {
       const [a,b] = await Promise.all([
-        apiRequest<any>("/admin/settings",{token}),
-        apiRequest<any>("/admin/subscription-plans",{token}),
+        apiRequest<{data:{settings:Setting[]}}>("/admin/settings",{token}),
+        apiRequest<{data:{plans:Plan[]}}>("/admin/subscription-plans",{token}),
       ]);
       const s = a.data.settings || [];
       setSettings(s);
@@ -68,7 +69,7 @@ export default function AdminSettingsPage() {
     try {
       const raw=drafts[item.key]??"";
       const value=item.type==="decimal"||item.type==="integer"?Number(raw):raw;
-      const r=await apiRequest<any>(`/admin/settings/${encodeURIComponent(item.key)}`,{
+      const r=await apiRequest<{data:{setting:Setting}}>(`/admin/settings/${encodeURIComponent(item.key)}`,{
         method:"PATCH",token,body:JSON.stringify({value})
       });
       setSettings(cur=>cur.map(x=>x.key===item.key?r.data.setting:x));
@@ -82,7 +83,7 @@ export default function AdminSettingsPage() {
     const token=getAuthToken(); if(!token) return;
     setSaving("plan"); setError(""); setSuccess("");
     try {
-      const r=await apiRequest<any>(`/admin/subscription-plans/${editing.id}`,{
+      const r=await apiRequest<{data:{plan:Plan}}>(`/admin/subscription-plans/${editing.id}`,{
         method:"PATCH",token,body:JSON.stringify({
           ...editing,
           price:Number(editing.price),
@@ -241,7 +242,7 @@ export default function AdminSettingsPage() {
           <Field label="الفحوص السنوية" type="number" value={String(editing.benefits?.annual_inspections||0)} onChange={v=>setEditing(c=>c?{...c,benefits:{...c.benefits,annual_inspections:Number(v)}}:c)}/>
           <Field label="تغييرات الفلاتر" type="number" value={String(editing.benefits?.included_filter_changes||0)} onChange={v=>setEditing(c=>c?{...c,benefits:{...c.benefits,included_filter_changes:Number(v)}}:c)}/>
           <Field label="نسبة الخصم" type="number" value={String(editing.benefits?.discount_percent||0)} onChange={v=>setEditing(c=>c?{...c,benefits:{...c.benefits,discount_percent:Number(v)}}:c)}/>
-          <div><label className="mb-2 block text-[10px] font-extrabold">دورة الفوترة</label><select value={editing.billing_cycle} onChange={e=>setEditing(c=>c?{...c,billing_cycle:e.target.value as any}:c)} className="h-12 w-full rounded-[15px] border border-[#dce9ed] px-4 text-xs"><option value="monthly">شهري</option><option value="yearly">سنوي</option></select></div>
+          <div><label className="mb-2 block text-[10px] font-extrabold">دورة الفوترة</label><select value={editing.billing_cycle} onChange={e=>setEditing(c=>c?{...c,billing_cycle:e.target.value as Plan["billing_cycle"]}:c)} className="h-12 w-full rounded-[15px] border border-[#dce9ed] px-4 text-xs"><option value="monthly">شهري</option><option value="yearly">سنوي</option></select></div>
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
           <Toggle label="تنبيهات ذكية" checked={!!editing.benefits?.smart_alerts} onChange={v=>setEditing(c=>c?{...c,benefits:{...c.benefits,smart_alerts:v}}:c)}/>
@@ -255,10 +256,10 @@ export default function AdminSettingsPage() {
   </div>;
 }
 
-function Card({icon:Icon,label,value,small=false}:{icon:any,label:string,value:string,small?:boolean}){return <article className="rounded-[22px] border border-[#dfecef] bg-white p-5"><div className="flex items-center gap-3"><div className="flex h-11 w-11 items-center justify-center rounded-[15px] bg-[#eaf8fb] text-[#16a6c9]"><Icon className="h-5 w-5"/></div><div className="min-w-0"><p className="text-[9px] font-extrabold text-[#94a5af]">{label}</p><strong className={`mt-1 block truncate font-black text-[#0d2b4e] ${small?"text-[13px]":"text-xl"}`}>{value}</strong></div></div></article>}
+function Card({icon:Icon,label,value,small=false}:{icon:LucideIcon,label:string,value:string,small?:boolean}){return <article className="rounded-[22px] border border-[#dfecef] bg-white p-5"><div className="flex items-center gap-3"><div className="flex h-11 w-11 items-center justify-center rounded-[15px] bg-[#eaf8fb] text-[#16a6c9]"><Icon className="h-5 w-5"/></div><div className="min-w-0"><p className="text-[9px] font-extrabold text-[#94a5af]">{label}</p><strong className={`mt-1 block truncate font-black text-[#0d2b4e] ${small?"text-[13px]":"text-xl"}`}>{value}</strong></div></div></article>}
 function Info({label,value}:{label:string,value:string}){return <div className="rounded-[16px] bg-[#f7fafb] p-4"><p className="text-[9px] font-bold text-[#97a7b1]">{label}</p><p className="mt-1.5 text-[12px] font-extrabold text-[#38536a]">{value}</p></div>}
-function Quick({href,icon:Icon,title}:{href:string,icon:any,title:string}){return <Link href={href} className="flex items-center gap-3 rounded-[17px] border border-[#e2ecef] bg-[#fbfdfe] p-4"><div className="flex h-10 w-10 items-center justify-center rounded-[13px] bg-[#eaf8fb] text-[#16a6c9]"><Icon className="h-4 w-4"/></div><p className="text-[11px] font-extrabold">{title}</p></Link>}
+function Quick({href,icon:Icon,title}:{href:string,icon:LucideIcon,title:string}){return <Link href={href} className="flex items-center gap-3 rounded-[17px] border border-[#e2ecef] bg-[#fbfdfe] p-4"><div className="flex h-10 w-10 items-center justify-center rounded-[13px] bg-[#eaf8fb] text-[#16a6c9]"><Icon className="h-4 w-4"/></div><p className="text-[11px] font-extrabold">{title}</p></Link>}
 function Benefit({text}:{text:string}){return <div className="flex items-center gap-2 text-[10px] font-bold text-[#607887]"><span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-50 text-emerald-600"><Check className="h-3 w-3"/></span>{text}</div>}
-function Op({href,icon:Icon,title,text}:{href:string,icon:any,title:string,text:string}){return <article className="rounded-[24px] border border-[#dfecef] bg-white p-5"><div className="flex h-11 w-11 items-center justify-center rounded-[15px] bg-[#eaf8fb] text-[#16a6c9]"><Icon className="h-5 w-5"/></div><h3 className="mt-4 text-[14px] font-extrabold">{title}</h3><p className="mt-2 text-[10px] font-bold text-[#8497a3]">{text}</p><Link href={href} className="mt-4 inline-flex text-[10px] font-extrabold text-[#16a6c9]">فتح الصفحة</Link></article>}
+function Op({href,icon:Icon,title,text}:{href:string,icon:LucideIcon,title:string,text:string}){return <article className="rounded-[24px] border border-[#dfecef] bg-white p-5"><div className="flex h-11 w-11 items-center justify-center rounded-[15px] bg-[#eaf8fb] text-[#16a6c9]"><Icon className="h-5 w-5"/></div><h3 className="mt-4 text-[14px] font-extrabold">{title}</h3><p className="mt-2 text-[10px] font-bold text-[#8497a3]">{text}</p><Link href={href} className="mt-4 inline-flex text-[10px] font-extrabold text-[#16a6c9]">فتح الصفحة</Link></article>}
 function Field({label,value,onChange,type="text"}:{label:string,value:string,onChange:(v:string)=>void,type?:string}){return <div><label className="mb-2 block text-[10px] font-extrabold">{label}</label><input type={type} value={value} onChange={e=>onChange(e.target.value)} className="h-12 w-full rounded-[15px] border border-[#dce9ed] px-4 text-xs"/></div>}
 function Toggle({label,checked,onChange}:{label:string,checked:boolean,onChange:(v:boolean)=>void}){return <label className="flex items-center justify-between rounded-[15px] border border-[#e2ecef] bg-[#fbfdfe] p-4"><span className="text-[10px] font-extrabold">{label}</span><input type="checkbox" checked={checked} onChange={e=>onChange(e.target.checked)} className="h-5 w-5 accent-[#16a6c9]"/></label>}
