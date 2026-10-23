@@ -97,7 +97,8 @@ export default function AdminCustomersPage() {
   }, [activeFilter, page, search]);
 
   useEffect(() => {
-    void loadCustomers();
+    const scheduled = queueMicrotask(() => { void loadCustomers(); });
+    void scheduled;
   }, [loadCustomers]);
 
   function submitSearch(event: FormEvent<HTMLFormElement>) {
