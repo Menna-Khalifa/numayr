@@ -641,12 +641,12 @@ function EditCoolerModal({
 
   useEffect(() => {
     if (!photo) {
-      setPreview(getCoolerPhoto(cooler) || "");
+      queueMicrotask(() => setPreview(getCoolerPhoto(cooler) || ""));
       return;
     }
 
     const url = URL.createObjectURL(photo);
-    setPreview(url);
+    queueMicrotask(() => setPreview(url));
 
     return () => URL.revokeObjectURL(url);
   }, [cooler, photo]);
