@@ -98,7 +98,8 @@ export default function AdminCoolerDetailPage() {
   }, [params.id]);
 
   useEffect(() => {
-    void load();
+    const scheduled = queueMicrotask(() => { void load(); });
+    void scheduled;
   }, [load]);
 
   async function review(status: "approved" | "rejected" | "disabled") {
