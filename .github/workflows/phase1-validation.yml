@@ -22,6 +22,12 @@ jobs:
           extensions: mbstring, sqlite3, pdo_sqlite, gd, intl
           coverage: none
       - run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Prepare isolated test environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+          mkdir -p database
+          touch database/database.sqlite
       - run: php artisan test
 
   frontend:
