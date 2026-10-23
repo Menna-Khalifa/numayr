@@ -46,12 +46,16 @@ class PaymentWebhookController extends Controller
             ? 'event:'.$providerEventId
             : 'hash:'.$payloadHash;
 
+        // Never persist the provider's webhook credential in the event log.
+        $storedPayload = $payload;
+        unset($storedPayload['secret_token']);
+
         $event = $this->findOrCreateWebhookEvent(
             provider: $provider,
             eventId: $providerEventId,
             idempotencyKey: $idempotencyKey,
             payloadHash: $payloadHash,
-            payload: $payload
+            payload: $storedPayload
         );
 
         if (! $event->wasRecentlyCreated) {
