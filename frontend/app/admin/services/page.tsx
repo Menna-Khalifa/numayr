@@ -115,7 +115,7 @@ export default function AdminServicesPage() {
   }, []);
 
   useEffect(() => {
-    void load();
+    queueMicrotask(() => { void load(); });
   }, [load]);
 
   const filtered = useMemo(() => {
