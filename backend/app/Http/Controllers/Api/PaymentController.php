@@ -220,7 +220,7 @@ class PaymentController extends Controller
         }
 
         // Provider confirmation must precede any local state change.
-        if (! app(\\App\\Services\\Payments\\Gateways\\MoyasarGateway::class)
+        if (! app(\App\Services\Payments\Gateways\MoyasarGateway::class)
             ->cancelUnusedIntent($paymentModel->provider_reference)) {
             throw ValidationException::withMessages([
                 'payment' => ['تعذر التأكد من عدم تنفيذ الدفع، يُرجى مراجعة حالته قبل المحاولة مرة أخرى'],
