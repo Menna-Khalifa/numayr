@@ -19,6 +19,121 @@ use Throwable;
 
 class PaymentWebhookController extends Controller
 {
+    /**
+     * Reconcile a customer redirect with the provider, never with callback query status.
+     * The intent's immutable description links the final Moyasar payment to our row.
+     */
+    public function confirmCustomerReturn(
+        Request $request,
+        int $order,
+        PaymentGatewayManager $gatewayManager
+    ): JsonResponse {
+        $validated = $request->validate([
+            'provider_payment_id' => ['required', 'string', 'uuid'],
+        ]);
+
+        $orderModel = Order::query()
+            ->where('user_id', $request->user()->id)
+            ->findOrFail($order);
+
+        $providerResult = $gatewayManager->driver('moyasar')
+            ->verifyPayment($validated['provider_payment_id']);
+
+        $payment = DB::transaction(function () use (
+            $orderModel,
+            $validated,
+            $providerResult
+        ) {
+            $providerPaymentId = $validated['provider_payment_id'];
+            $description = $providerResult['description'] ?? null;
+
+            $candidate = Payment::query()
+                ->where('order_id', $orderModel->id)
+                ->where('provider', 'moyasar')
+                ->whereIn('status', [
+                    Payment::STATUS_PROCESSING,
+                    Payment::STATUS_PENDING,
+                    Payment::STATUS_PAID,
+                ])
+                ->get()
+                ->first(fn (Payment $row) =>
+                    $description === 'NUMAYR Payment #' . $row->id
+                );
+
+            if (! $candidate) {
+                abort(422, 'Payment does not belong to this order.');
+            }
+
+            $paymentModel = Payment::query()
+                ->lockForUpdate()
+                ->findOrFail($candidate->id);
+
+            $expectedHalalas = (int) round(((float) $paymentModel->amount) * 100);
+            if (
+                (int) ($providerResult['amount'] ?? -1) !== $expectedHalalas
+                || strtoupper((string) ($providerResult['currency'] ?? ''))
+                    !== strtoupper((string) $paymentModel->currency)
+            ) {
+                abort(422, 'Verified payment amount or currency does not match.');
+            }
+
+            if ($paymentModel->status === Payment::STATUS_PAID) {
+                if ($paymentModel->transaction_id !== $providerPaymentId) {
+                    abort(422, 'Payment was already settled with another transaction.');
+                }
+                return $paymentModel;
+            }
+
+            if ($providerResult['status'] !== Payment::STATUS_PAID) {
+                return $paymentModel;
+            }
+
+            if (! $paymentModel->canTransitionTo(Payment::STATUS_PAID)) {
+                abort(422, 'Invalid payment transition.');
+            }
+
+            // The provider intent reference stays in provider_reference;
+            // the settled payment UUID is stored separately for reconciliation.
+            $updates = [
+                'status' => Payment::STATUS_PAID,
+                'transaction_id' => $providerPaymentId,
+            ];
+            $this->prepareOrderPaymentTransition(
+                $paymentModel,
+                Payment::STATUS_PAID,
+                [
+                    'transaction_id' => $providerPaymentId,
+                    'amount' => $providerResult['amount'],
+                    'currency' => $providerResult['currency'],
+                ],
+                $paymentModel->provider_reference,
+                $updates
+            );
+            $paymentModel->update($updates);
+            $this->syncOrderPaymentStatus(
+                Order::query()->lockForUpdate()->findOrFail($orderModel->id)
+            );
+
+            return $paymentModel;
+        });
+
+        if ($payment->status === Payment::STATUS_PAID) {
+            $this->sendStatusNotificationSafely(
+                $payment->fresh(),
+                Payment::STATUS_PAID
+            );
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'payment_id' => $payment->id,
+                'status' => $payment->fresh()->status,
+                'order_id' => $orderModel->id,
+            ],
+        ]);
+    }
+
     public function handle(
         Request $request,
         string $provider,
