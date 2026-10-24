@@ -399,6 +399,12 @@ if ($unapprovedCoolers->isNotEmpty()) {
             'data' => [
                 'subscription' => new SubscriptionResource($subscription),
                 'payment' => new PaymentResource($payment),
+                'checkout' => $provider === 'moyasar' ? [
+                    'intent_id' => $gatewayResult['reference'] ?? null,
+                    'client_secret' => $gatewayResult['client_secret'] ?? null,
+                    'publishable_key' => config('services.moyasar.publishable_key'),
+                    'callback_url' => config('services.moyasar.callback_url'),
+                ] : null,
             ],
         ], 201);
     }
