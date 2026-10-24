@@ -129,4 +129,26 @@ class MoyasarGatewayTest extends TestCase
         $this->expectException(RuntimeException::class);
         app(MoyasarGateway::class)->verifyPayment('requested_reference');
     }
+    public function test_live_mode_refuses_local_development_before_provider_request(): void
+    {
+        config()->set('services.moyasar.mode', 'live');
+        config()->set('services.moyasar.secret_key', 'sk_live_example');
+        config()->set('services.moyasar.callback_url', 'http://localhost:3000/payment/callback');
+        config()->set('app.url', 'http://localhost:8000');
+        Http::fake();
+
+        $payment = new Payment();
+        $payment->id = 100;
+        $payment->amount = '25.00';
+        $payment->currency = 'SAR';
+
+        try {
+            app(MoyasarGateway::class)->createPayment($payment);
+            $this->fail('Live payment should be blocked without production HTTPS.');
+        } catch (RuntimeException $exception) {
+            $this->assertStringContainsString('production HTTPS', $exception->getMessage());
+        }
+        Http::assertNothingSent();
+    }
+
 }

@@ -78,6 +78,27 @@ class MoyasarGateway implements PaymentGateway
             );
         }
 
+        // Never initiate real-money payments from a local or non-HTTPS backend.
+        // This runtime guard is mandatory even if preflight was not run.
+        if (config('services.moyasar.mode', 'test') === 'live') {
+            $appUrl = (string) config('app.url', '');
+            $appHost = strtolower((string) parse_url($appUrl, PHP_URL_HOST));
+            $callbackHost = strtolower((string) parse_url($callbackUrl, PHP_URL_HOST));
+
+            if (
+                ! app()->environment('production')
+                || (bool) config('app.debug')
+                || parse_url($appUrl, PHP_URL_SCHEME) !== 'https'
+                || parse_url($callbackUrl, PHP_URL_SCHEME) !== 'https'
+                || in_array($appHost, ['', 'localhost', '127.0.0.1'], true)
+                || in_array($callbackHost, ['', 'localhost', '127.0.0.1'], true)
+            ) {
+                throw new RuntimeException(
+                    'Moyasar live payments require a production HTTPS deployment.'
+                );
+            }
+        }
+
         $currency = strtoupper($payment->currency);
 
         if ($currency !== 'SAR') {
