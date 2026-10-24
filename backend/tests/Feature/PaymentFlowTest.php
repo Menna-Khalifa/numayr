@@ -832,13 +832,13 @@ class PaymentFlowTest extends TestCase
             'currency' => 'SAR',
             'provider_reference' => 'intent-recover',
         ]);
-        \\Illuminate\\Support\\Facades\\Http::fake(function ($request) {
+        \Illuminate\Support\Facades\Http::fake(function ($request) {
             if ($request->method() === 'POST') {
-                return \\Illuminate\\Support\\Facades\\Http::response([
+                return \Illuminate\Support\Facades\Http::response([
                     'id' => 'intent-recover', 'status' => 'canceled',
                 ]);
             }
-            return \\Illuminate\\Support\\Facades\\Http::response([
+            return \Illuminate\Support\Facades\Http::response([
                 'id' => 'intent-recover', 'status' => 'created',
                 'expires_at' => now()->addMinutes(15)->toIso8601String(),
             ]);
@@ -866,8 +866,8 @@ class PaymentFlowTest extends TestCase
             'currency' => 'SAR',
             'provider_reference' => 'intent-fulfilled',
         ]);
-        \\Illuminate\\Support\\Facades\\Http::fake([
-            'api.moyasar.com/*' => \\Illuminate\\Support\\Facades\\Http::response([
+        \Illuminate\Support\Facades\Http::fake([
+            'api.moyasar.com/*' => \Illuminate\Support\Facades\Http::response([
                 'id' => 'intent-fulfilled',
                 'status' => 'fulfilled',
                 'expires_at' => now()->addMinutes(15)->toIso8601String(),
