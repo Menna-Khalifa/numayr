@@ -264,6 +264,8 @@ Route::prefix('v1')->group(function () {
 
         );
 
+        Route::post('/orders/{order}/payments/confirm', [PaymentWebhookController::class, 'confirmCustomerReturn'])->middleware('throttle:payment-webhook');
+
         Route::get(
 
             '/orders/{order}/payments',
