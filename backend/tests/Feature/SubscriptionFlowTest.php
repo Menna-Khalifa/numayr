@@ -65,6 +65,13 @@ class SubscriptionFlowTest extends TestCase
         $this->postJson($path, ['provider_payment_id' => $finalId])
             ->assertOk()->assertJsonPath('data.status', Payment::STATUS_PAID);
         $this->assertEquals($startsAt, $subscription->fresh()->starts_at);
+        $this->assertDatabaseCount('invoices', 1);
+        $this->assertDatabaseHas('invoices', [
+            'subscription_id' => $subscription->id,
+            'payment_id' => $payment->id,
+            'order_id' => null,
+            'status' => 'paid',
+        ]);
     }
 
     public function test_pending_moyasar_subscription_requires_safe_intent_cancellation(): void
