@@ -39,6 +39,7 @@ export default function OrderCheckoutPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [ready, setReady] = useState(false);
+  const [started, setStarted] = useState(false);
 
   useEffect(() => {
     if (!getAuthToken()) router.replace("/login");
@@ -85,6 +86,7 @@ export default function OrderCheckoutPage() {
         throw new Error("مبلغ الدفع غير صالح");
       }
       mounted.current = true;
+      setStarted(true);
       window.Moyasar.init({
         element: "#numayr-moyasar-form",
         amount,
@@ -102,6 +104,7 @@ export default function OrderCheckoutPage() {
       });
     } catch (exception) {
       mounted.current = false;
+      setStarted(false);
       setError(exception instanceof Error ? exception.message : "تعذر بدء الدفع");
     } finally {
       setBusy(false);
@@ -113,7 +116,7 @@ export default function OrderCheckoutPage() {
       <main className="mx-auto max-w-xl rounded-3xl border border-slate-200 bg-white p-6">
         <h1 className="text-2xl font-bold text-slate-900">الدفع الآمن عبر ميسر</h1>
         <p className="mt-3 text-sm text-slate-600">سيتم تأكيد الطلب بعد التحقق من الدفع لدى ميسر، وليس بمجرد الرجوع إلى الموقع.</p>
-        {!mounted.current && (
+        {!started && (
           <button type="button" disabled={!ready || busy} onClick={() => void startCheckout()}
             className="mt-6 rounded-xl bg-sky-700 px-5 py-3 font-bold text-white disabled:opacity-50">
             {busy ? "جاري تجهيز الدفع..." : "الانتقال إلى نموذج الدفع"}
