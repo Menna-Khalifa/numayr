@@ -178,9 +178,11 @@ export default function OrderDetailsPage() {
         { method: "POST", token }
       );
       setOrder(response.data.order);
-      setQuoteMessage(action === "approve"
-        ? "تم اعتماد السعر. يمكنك الآن إتمام الدفع."
-        : "تم رفض العرض وإبلاغ الإدارة.");
+      if (action === "approve") {
+        router.push(`/orders/${order.id}/checkout`);
+      } else {
+        setQuoteMessage("تم رفض العرض وإبلاغ الإدارة.");
+      }
     } catch (exception) {
       setQuoteMessage(exception instanceof ApiError
         ? exception.message : "تعذر تحديث قرار عرض السعر");
@@ -524,7 +526,7 @@ export default function OrderDetailsPage() {
                             <p className="text-xs font-bold text-[#0d2b4e]">تم تحديد السعر وبانتظار موافقتك قبل الدفع.</p>
                             <button type="button" disabled={quoteBusy} onClick={() => void decideQuote("approve")}
                               className="w-full rounded-xl bg-[#16a6c9] p-3 text-sm font-bold text-white disabled:opacity-50">
-                              موافق على السعر، متابعة للدفع
+                              الموافقة على السعر والدفع الآن
                             </button>
                             <button type="button" disabled={quoteBusy} onClick={() => void decideQuote("reject")}
                               className="w-full rounded-xl border border-[#dce8ec] p-3 text-xs font-bold text-[#0d2b4e] disabled:opacity-50">
