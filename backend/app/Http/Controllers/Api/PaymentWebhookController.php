@@ -235,6 +235,21 @@ class PaymentWebhookController extends Controller
             $parsedEvent = $gateway->parseWebhook($payload);
 
             if ($provider === 'moyasar') {
+                // Reject a test event on a live merchant (and the reverse).
+                $mode = config('services.moyasar.mode', 'test');
+                if (!in_array($mode, ['test', 'live'], true)
+                    || !is_bool($payload['live'] ?? null)
+                    || $payload['live'] !== ($mode === 'live')) {
+                    $event->update([
+                        'processing_status' => PaymentWebhookEvent::STATUS_IGNORED,
+                        'error_message' => 'Moyasar environment mismatch',
+                        'processed_at' => now(),
+                    ]);
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Webhook ignored: environment mismatch',
+                    ]);
+                }
                 // Webhook data.id is the settled payment UUID, not the intent ID
                 // stored in provider_reference. Verify it using our server key.
                 $paymentId = $parsedEvent['reference'] ?? null;
