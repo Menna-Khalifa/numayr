@@ -68,6 +68,42 @@ class PaymentFlowTest extends TestCase
         ]);
     }
 
+    public function test_moyasar_checkout_credentials_are_returned_only_in_creation_response(): void
+    {
+        \Illuminate\Support\Facades\Config::set('payments.default', 'moyasar');
+        \Illuminate\Support\Facades\Config::set('services.moyasar.secret_key', 'sk_test_stub');
+        \Illuminate\Support\Facades\Config::set('services.moyasar.publishable_key', 'pk_test_stub');
+        \Illuminate\Support\Facades\Config::set('services.moyasar.callback_url', 'https://example.test/payment/callback');
+
+        \Illuminate\Support\Facades\Http::fake([
+            'api.moyasar.com/*' => \Illuminate\Support\Facades\Http::response([
+                'id' => 'intent_test_owner',
+                'client_secret' => 'pi_secret_private_example',
+                'expires_at' => '2026-10-25T16:00:00Z',
+            ], 201),
+        ]);
+
+        $user = User::factory()->create();
+        $order = $this->createOrder($user);
+        Sanctum::actingAs($user);
+
+        $this->postJson("/api/v1/orders/{$order->id}/payments", ['method' => 'card'])
+            ->assertCreated()
+            ->assertJsonPath('data.checkout.intent_id', 'intent_test_owner')
+            ->assertJsonPath('data.checkout.client_secret', 'pi_secret_private_example')
+            ->assertJsonPath('data.checkout.publishable_key', 'pk_test_stub');
+
+        $payment = Payment::query()->where('order_id', $order->id)->firstOrFail();
+        $this->assertStringNotContainsString(
+            'pi_secret_private_example',
+            json_encode($payment->toArray())
+        );
+
+        $this->getJson("/api/v1/orders/{$order->id}/payments")
+            ->assertOk()
+            ->assertDontSee('pi_secret_private_example');
+    }
+
     public function test_existing_active_payment_is_reused_instead_of_creating_duplicate(): void
     {
         $user = User::factory()->create();
