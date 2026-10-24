@@ -122,6 +122,40 @@ class MoyasarGateway implements PaymentGateway
         ];
     }
 
+    /**
+     * Cancel a subscription's abandoned, unfulfilled checkout safely.
+     * Fulfilled intents may have a real payment and cannot be discarded.
+     */
+    public function cancelUnusedIntent(string $reference): bool
+    {
+        $url = $this->baseUrl().'/payment_intents/'.rawurlencode($reference);
+        $response = $this->client()->get($url);
+        if (!$response->successful()) {
+            throw new RuntimeException('Could not verify the existing Moyasar payment intent.');
+        }
+        $intent = $response->json();
+        if (!is_array($intent) || ($intent['id'] ?? null) !== $reference) {
+            throw new RuntimeException('Invalid Moyasar intent response.');
+        }
+        if (($intent['status'] ?? null) === 'canceled') {
+            return true;
+        }
+        if (($intent['status'] ?? null) !== 'created') {
+            return false;
+        }
+        $expiresAt = strtotime((string) ($intent['expires_at'] ?? ''));
+        if ($expiresAt === false) {
+            throw new RuntimeException('Moyasar intent expiration is missing.');
+        }
+        if ($expiresAt <= time()) {
+            return true; // Expired created intents cannot be fulfilled.
+        }
+        $cancel = $this->client()->post($url.'/cancel', []);
+        return $cancel->successful()
+            && ($cancel->json('id') === $reference)
+            && ($cancel->json('status') === 'canceled');
+    }
+
     public function verifyPayment(string $reference): array
     {
         $response = $this->client()->get(
