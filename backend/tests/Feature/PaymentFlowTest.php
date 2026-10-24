@@ -711,6 +711,7 @@ class PaymentFlowTest extends TestCase
         $body = [
             'id' => '44444444-4444-4444-8444-444444444444',
             'type' => 'payment_paid',
+            'live' => false,
             'secret_token' => 'test-webhook-token',
             'data' => [
                 'id' => $finalId, 'status' => 'paid',
@@ -752,7 +753,7 @@ class PaymentFlowTest extends TestCase
         ]);
         $this->postJson('/api/v1/payments/webhooks/moyasar', [
             'id' => '66666666-6666-4666-8666-666666666666',
-            'type' => 'payment_paid', 'secret_token' => 'test-webhook-token',
+            'type' => 'payment_paid', 'live' => false, 'secret_token' => 'test-webhook-token',
             'data' => ['id' => $finalId, 'status' => 'paid'],
         ])->assertOk();
         $this->assertSame(Payment::STATUS_PROCESSING, $payment->fresh()->status);
