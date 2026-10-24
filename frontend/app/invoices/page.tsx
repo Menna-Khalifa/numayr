@@ -118,6 +118,13 @@ export default function InvoicesPage() {
 
   const [filter, setFilter] = useState<FilterMode>("all");
   const [search, setSearch] = useState("");
+  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
+
+  useEffect(() => {
+    const orderId = new URLSearchParams(window.location.search).get("order");
+    const parsedId = orderId ? Number(orderId) : null;
+    queueMicrotask(() => setSelectedOrderId(parsedId && Number.isSafeInteger(parsedId) && parsedId > 0 ? parsedId : null));
+  }, []);
 
   const [downloadingId, setDownloadingId] =
     useState<number | null>(null);
@@ -202,9 +209,10 @@ return safeInvoices.filter((invoice) => {
           ?.toLowerCase()
           .includes(query);
 
-      return matchesFilter && matchesSearch;
+      return matchesFilter && matchesSearch &&
+        (selectedOrderId === null || invoice.order_id === selectedOrderId);
     });
-  }, [filter, invoices, search]);
+  }, [filter, invoices, search, selectedOrderId]);
 
 const paidTotal = (Array.isArray(invoices) ? invoices : [])
     .filter(
