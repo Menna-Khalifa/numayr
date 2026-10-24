@@ -412,24 +412,6 @@ export default function CoolerDetailsPage() {
               />
 
               <DetailRow
-                label="خط العرض"
-                value={
-                  cooler.latitude !== null
-                    ? String(cooler.latitude)
-                    : "غير محدد"
-                }
-              />
-
-              <DetailRow
-                label="خط الطول"
-                value={
-                  cooler.longitude !== null
-                    ? String(cooler.longitude)
-                    : "غير محدد"
-                }
-              />
-
-              <DetailRow
                 label="نوع الفلتر"
                 value={cooler.filter_type || "غير محدد"}
               />
@@ -659,12 +641,12 @@ function EditCoolerModal({
 
   useEffect(() => {
     if (!photo) {
-      setPreview(getCoolerPhoto(cooler) || "");
+      queueMicrotask(() => setPreview(getCoolerPhoto(cooler) || ""));
       return;
     }
 
     const url = URL.createObjectURL(photo);
-    setPreview(url);
+    queueMicrotask(() => setPreview(url));
 
     return () => URL.revokeObjectURL(url);
   }, [cooler, photo]);

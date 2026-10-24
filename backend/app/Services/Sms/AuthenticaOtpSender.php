@@ -41,7 +41,7 @@ class AuthenticaOtpSender
             ->withHeaders([
                 'X-Authorization' => $apiKey,
             ])
-            ->timeout(15)
+            ->timeout((int) config('services.authentica.timeout', 15))
             ->post($baseUrl . '/api/v2/send-otp', [
                 'method' => 'sms',
                 'phone' => $internationalPhone,

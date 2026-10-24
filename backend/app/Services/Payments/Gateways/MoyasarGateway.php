@@ -25,6 +25,15 @@ class MoyasarGateway implements PaymentGateway
             throw new RuntimeException('Moyasar secret key is not configured.');
         }
 
+        $mode = config('services.moyasar.mode', 'test');
+        $prefix = $mode === 'live' ? 'sk_live_' : 'sk_test_';
+        if (!in_array($mode, ['test', 'live'], true)
+            || !str_starts_with($key, $prefix)) {
+            throw new RuntimeException(
+                'Moyasar secret key does not match the configured payment mode.'
+            );
+        }
+
         return Http::withBasicAuth($key, '')
             ->acceptJson()
             ->asJson()
@@ -60,6 +69,13 @@ class MoyasarGateway implements PaymentGateway
         if (!is_string($callbackUrl) ||
             !filter_var($callbackUrl, FILTER_VALIDATE_URL)) {
             throw new RuntimeException('Moyasar callback URL is not configured.');
+        }
+
+        if (app()->environment('production')
+            && strtolower((string) parse_url($callbackUrl, PHP_URL_SCHEME)) !== 'https') {
+            throw new RuntimeException(
+                'Moyasar production callback must use public HTTPS.'
+            );
         }
 
         $currency = strtoupper($payment->currency);
@@ -106,6 +122,40 @@ class MoyasarGateway implements PaymentGateway
         ];
     }
 
+    /**
+     * Cancel a subscription's abandoned, unfulfilled checkout safely.
+     * Fulfilled intents may have a real payment and cannot be discarded.
+     */
+    public function cancelUnusedIntent(string $reference): bool
+    {
+        $url = $this->baseUrl().'/payment_intents/'.rawurlencode($reference);
+        $response = $this->client()->get($url);
+        if (!$response->successful()) {
+            throw new RuntimeException('Could not verify the existing Moyasar payment intent.');
+        }
+        $intent = $response->json();
+        if (!is_array($intent) || ($intent['id'] ?? null) !== $reference) {
+            throw new RuntimeException('Invalid Moyasar intent response.');
+        }
+        if (($intent['status'] ?? null) === 'canceled') {
+            return true;
+        }
+        if (($intent['status'] ?? null) !== 'created') {
+            return false;
+        }
+        $expiresAt = strtotime((string) ($intent['expires_at'] ?? ''));
+        if ($expiresAt === false) {
+            throw new RuntimeException('Moyasar intent expiration is missing.');
+        }
+        if ($expiresAt <= time()) {
+            return true; // Expired created intents cannot be fulfilled.
+        }
+        $cancel = $this->client()->post($url.'/cancel', []);
+        return $cancel->successful()
+            && ($cancel->json('id') === $reference)
+            && ($cancel->json('status') === 'canceled');
+    }
+
     public function verifyPayment(string $reference): array
     {
         $response = $this->client()->get(
@@ -142,6 +192,7 @@ class MoyasarGateway implements PaymentGateway
             'status' => $status,
             'amount' => $data['amount'] ?? null,
             'currency' => $data['currency'] ?? null,
+            'description' => $data['description'] ?? null,
         ];
     }
 
@@ -156,7 +207,19 @@ class MoyasarGateway implements PaymentGateway
         string $payload,
         ?string $signature
     ): bool {
-        return false;
+        // Moyasar includes the configured shared secret as secret_token
+        // inside the JSON webhook body, rather than an HMAC header.
+        $secret = config('services.moyasar.webhook_secret');
+        if (!is_string($secret) || $secret === '') {
+            return false;
+        }
+
+        $event = json_decode($payload, true);
+        if (!is_array($event) || !is_string($event['secret_token'] ?? null)) {
+            return false;
+        }
+
+        return hash_equals($secret, $event['secret_token']);
     }
 
     public function parseWebhook(array $payload): array

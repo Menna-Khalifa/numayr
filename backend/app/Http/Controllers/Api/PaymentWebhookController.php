@@ -19,6 +19,208 @@ use Throwable;
 
 class PaymentWebhookController extends Controller
 {
+    /**
+     * Reconcile a customer redirect with the provider, never with callback query status.
+     * The intent's immutable description links the final Moyasar payment to our row.
+     */
+    public function confirmCustomerReturn(
+        Request $request,
+        int $order,
+        PaymentGatewayManager $gatewayManager
+    ): JsonResponse {
+        $validated = $request->validate([
+            'provider_payment_id' => ['required', 'string', 'uuid'],
+        ]);
+
+        $orderModel = Order::query()
+            ->where('user_id', $request->user()->id)
+            ->findOrFail($order);
+
+        $providerResult = $gatewayManager->driver('moyasar')
+            ->verifyPayment($validated['provider_payment_id']);
+
+        $result = DB::transaction(function () use (
+            $orderModel,
+            $validated,
+            $providerResult
+        ) {
+            $providerPaymentId = $validated['provider_payment_id'];
+            $description = $providerResult['description'] ?? null;
+
+            $candidate = Payment::query()
+                ->where('order_id', $orderModel->id)
+                ->where('provider', 'moyasar')
+                ->whereIn('status', [
+                    Payment::STATUS_PROCESSING,
+                    Payment::STATUS_PENDING,
+                    Payment::STATUS_PAID,
+                ])
+                ->get()
+                ->first(fn (Payment $row) =>
+                    $description === 'NUMAYR Payment #' . $row->id
+                );
+
+            if (! $candidate) {
+                abort(422, 'Payment does not belong to this order.');
+            }
+
+            $paymentModel = Payment::query()
+                ->lockForUpdate()
+                ->findOrFail($candidate->id);
+
+            $expectedHalalas = (int) round(((float) $paymentModel->amount) * 100);
+            if (
+                (int) ($providerResult['amount'] ?? -1) !== $expectedHalalas
+                || strtoupper((string) ($providerResult['currency'] ?? ''))
+                    !== strtoupper((string) $paymentModel->currency)
+            ) {
+                abort(422, 'Verified payment amount or currency does not match.');
+            }
+
+            if ($paymentModel->status === Payment::STATUS_PAID) {
+                if ($paymentModel->transaction_id !== $providerPaymentId) {
+                    abort(422, 'Payment was already settled with another transaction.');
+                }
+                return ['payment' => $paymentModel, 'transitioned' => false];
+            }
+
+            $verifiedStatus = $providerResult['status'];
+            if (! in_array($verifiedStatus, [
+                Payment::STATUS_PAID,
+                Payment::STATUS_FAILED,
+            ], true)) {
+                return ['payment' => $paymentModel, 'transitioned' => false];
+            }
+
+            if (! $paymentModel->canTransitionTo($verifiedStatus)) {
+                abort(422, 'Invalid payment transition.');
+            }
+
+            if ($verifiedStatus === Payment::STATUS_FAILED) {
+                $paymentModel->update([
+                    'status' => Payment::STATUS_FAILED,
+                    'transaction_id' => $providerPaymentId,
+                    'failed_at' => now(),
+                ]);
+                $this->syncOrderPaymentStatus(
+                    Order::query()->lockForUpdate()->findOrFail($orderModel->id)
+                );
+                return ['payment' => $paymentModel, 'transitioned' => true];
+            }
+
+            // The provider intent reference stays in provider_reference;
+            // the settled payment UUID is stored separately for reconciliation.
+            $updates = [
+                'status' => Payment::STATUS_PAID,
+                'transaction_id' => $providerPaymentId,
+            ];
+            $this->prepareOrderPaymentTransition(
+                $paymentModel,
+                Payment::STATUS_PAID,
+                [
+                    'transaction_id' => $providerPaymentId,
+                    'amount' => $providerResult['amount'],
+                    'currency' => $providerResult['currency'],
+                ],
+                $paymentModel->provider_reference,
+                $updates
+            );
+            $paymentModel->update($updates);
+            $this->syncOrderPaymentStatus(
+                Order::query()->lockForUpdate()->findOrFail($orderModel->id)
+            );
+
+            return ['payment' => $paymentModel, 'transitioned' => true];
+        });
+
+        $payment = $result['payment'];
+        if ($result['transitioned']) {
+            $this->sendStatusNotificationSafely(
+                $payment->fresh(),
+                $payment->status
+            );
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'payment_id' => $payment->id,
+                'status' => $payment->fresh()->status,
+                'order_id' => $orderModel->id,
+            ],
+        ]);
+    }
+
+    /**
+     * Confirm a subscription payment using the payment ID returned by Moyasar.
+     * Authenticated ownership, provider status, amount and currency are all checked.
+     */
+    public function confirmSubscriptionReturn(
+        Request $request,
+        int $subscription,
+        PaymentGatewayManager $gatewayManager
+    ): JsonResponse {
+        $validated = $request->validate([
+            'provider_payment_id' => ['required', 'string', 'uuid'],
+        ]);
+        $subscriptionModel = Subscription::query()
+            ->where('user_id', $request->user()->id)
+            ->findOrFail($subscription);
+
+        $providerId = $validated['provider_payment_id'];
+        $verified = $gatewayManager->driver('moyasar')->verifyPayment($providerId);
+        $result = DB::transaction(function () use ($subscriptionModel, $providerId, $verified) {
+            $description = $verified['description'] ?? null;
+            $candidate = Payment::query()
+                ->where('subscription_id', $subscriptionModel->id)
+                ->where('provider', 'moyasar')
+                ->get()
+                ->first(fn (Payment $p) => $description === 'NUMAYR Payment #' . $p->id);
+
+            if (! $candidate) {
+                abort(422, 'Payment does not belong to this subscription.');
+            }
+            $payment = Payment::query()->lockForUpdate()->findOrFail($candidate->id);
+            if ((int) ($verified['amount'] ?? -1)
+                !== (int) round(((float) $payment->amount) * 100)
+                || strtoupper((string) ($verified['currency'] ?? ''))
+                !== strtoupper((string) $payment->currency)) {
+                abort(422, 'Verified payment amount or currency does not match.');
+            }
+            if ($payment->status === Payment::STATUS_PAID) {
+                if ($payment->transaction_id !== $providerId) {
+                    abort(422, 'Subscription already settled with another payment.');
+                }
+                return ['payment' => $payment, 'changed' => false];
+            }
+            $status = $verified['status'];
+            if (!in_array($status, [Payment::STATUS_PAID, Payment::STATUS_FAILED], true)) {
+                return ['payment' => $payment, 'changed' => false];
+            }
+            if (!$payment->canTransitionTo($status)) {
+                abort(422, 'Invalid subscription payment transition.');
+            }
+            $updates = ['status' => $status, 'transaction_id' => $providerId];
+            $this->handleSubscriptionPayment($payment, $status, $updates);
+            $payment->update($updates);
+            return ['payment' => $payment, 'changed' => true];
+        });
+
+        $payment = $result['payment'];
+        if ($result['changed']) {
+            $this->sendStatusNotificationSafely($payment->fresh(), $payment->status);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'payment_id' => $payment->id,
+                'status' => $payment->fresh()->status,
+                'subscription_id' => $subscriptionModel->id,
+            ],
+        ]);
+    }
+
     public function handle(
         Request $request,
         string $provider,
@@ -46,25 +248,17 @@ class PaymentWebhookController extends Controller
             ? 'event:'.$providerEventId
             : 'hash:'.$payloadHash;
 
+        // Never persist the provider's webhook credential in the event log.
+        $storedPayload = $payload;
+        unset($storedPayload['secret_token']);
+
         $event = $this->findOrCreateWebhookEvent(
             provider: $provider,
             eventId: $providerEventId,
             idempotencyKey: $idempotencyKey,
             payloadHash: $payloadHash,
-            payload: $payload
+            payload: $storedPayload
         );
-
-        if (! $event->wasRecentlyCreated) {
-            return response()->json([
-                'success' => true,
-                'duplicate' => true,
-                'message' => 'Webhook already received',
-                'data' => [
-                    'event_id' => $event->id,
-                    'processing_status' => $event->processing_status,
-                ],
-            ]);
-        }
 
         try {
             $gateway = $gatewayManager->driver($provider);
@@ -77,6 +271,12 @@ class PaymentWebhookController extends Controller
                 $rawPayload,
                 $signature
             )) {
+                if (! $event->wasRecentlyCreated) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Invalid webhook signature',
+                    ], 401);
+                }
                 $event->update([
                     'processing_status' => PaymentWebhookEvent::STATUS_FAILED,
                     'error_message' => 'Invalid webhook signature',
@@ -89,7 +289,77 @@ class PaymentWebhookController extends Controller
                 ], 401);
             }
 
+            // Replays must also authenticate; a matching event ID is not proof.
+            if (! $event->wasRecentlyCreated) {
+                return response()->json([
+                    'success' => true,
+                    'duplicate' => true,
+                    'message' => 'Webhook already received',
+                    'data' => [
+                        'event_id' => $event->id,
+                        'processing_status' => $event->processing_status,
+                    ],
+                ]);
+            }
+
             $parsedEvent = $gateway->parseWebhook($payload);
+
+            if ($provider === 'moyasar') {
+                // Reject a test event on a live merchant (and the reverse).
+                $mode = config('services.moyasar.mode', 'test');
+                if (!in_array($mode, ['test', 'live'], true)
+                    || !is_bool($payload['live'] ?? null)
+                    || $payload['live'] !== ($mode === 'live')) {
+                    $event->update([
+                        'processing_status' => PaymentWebhookEvent::STATUS_IGNORED,
+                        'error_message' => 'Moyasar environment mismatch',
+                        'processed_at' => now(),
+                    ]);
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Webhook ignored: environment mismatch',
+                    ]);
+                }
+                // Webhook data.id is the settled payment UUID, not the intent ID
+                // stored in provider_reference. Verify it using our server key.
+                $paymentId = $parsedEvent['reference'] ?? null;
+                $verified = is_string($paymentId)
+                    ? $gateway->verifyPayment($paymentId)
+                    : null;
+
+                $description = $verified['description'] ?? null;
+                $candidateId = is_string($description)
+                    && preg_match('/^NUMAYR Payment #([1-9][0-9]*)$/', $description, $matches)
+                    ? (int) $matches[1]
+                    : null;
+                $candidate = $candidateId
+                    ? Payment::query()->where('provider', 'moyasar')->find($candidateId)
+                    : null;
+
+                if (! $candidate
+                    || $candidate->provider_reference === null
+                    || (int) ($verified['amount'] ?? -1)
+                        !== (int) round(((float) $candidate->amount) * 100)
+                    || strtoupper((string) ($verified['currency'] ?? ''))
+                        !== strtoupper((string) $candidate->currency)
+                    || ($verified['status'] ?? null) !== ($parsedEvent['status'] ?? null)
+                ) {
+                    $event->update([
+                        'processing_status' => PaymentWebhookEvent::STATUS_IGNORED,
+                        'error_message' => 'Moyasar payment verification mismatch',
+                        'processed_at' => now(),
+                    ]);
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Webhook ignored after provider verification',
+                    ]);
+                }
+
+                $parsedEvent['reference'] = $candidate->provider_reference;
+                $parsedEvent['transaction_id'] = $paymentId;
+                $parsedEvent['amount'] = $verified['amount'];
+                $parsedEvent['currency'] = $verified['currency'];
+            }
 
             $reference = $parsedEvent['reference'] ?? null;
             $status = $parsedEvent['status'] ?? null;

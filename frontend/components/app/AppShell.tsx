@@ -11,6 +11,7 @@ import {
   LogOut,
   Menu,
   PackageCheck,
+  ReceiptText,
   Settings,
   Snowflake,
   X,
@@ -51,6 +52,11 @@ const navigation = [
     label: "طلباتي",
     href: "/orders",
     icon: PackageCheck,
+  },
+  {
+    label: "فواتيري",
+    href: "/invoices",
+    icon: ReceiptText,
   },
   {
     label: "حسابي",
@@ -404,7 +410,7 @@ export default function AppShell({
       </div>
 
       <nav className="fixed inset-x-3 bottom-3 z-40 rounded-[24px] border border-white/80 bg-white/90 px-2 py-2 shadow-[0_18px_60px_rgba(13,43,78,.16)] backdrop-blur-2xl lg:hidden">
-        <div className="grid grid-cols-4">
+        <div className="grid grid-cols-5">
           {navigation.map((item) => {
             const Icon = item.icon;
 

@@ -12,6 +12,55 @@ class OrderQuoteNotificationTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_quote_payment_is_blocked_until_admin_prices_and_customer_approves(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin', 'is_active' => true]);
+        $customer = User::factory()->create(['role' => 'customer', 'is_active' => true]);
+        $order = Order::create([
+            'order_number' => 'QUOTE-PAY-GATE-01',
+            'user_id' => $customer->id,
+            'service_code' => 'maintenance',
+            'service_name' => 'صيانة',
+            'pricing_model' => 'quote',
+            'status' => Order::STATUS_PENDING,
+            'payment_status' => 'pending',
+            'quote_status' => Order::QUOTE_STATUS_AWAITING_INSPECTION,
+            'urgent_fee' => '0.00',
+            'subtotal' => 0,
+            'tax_rate' => 15,
+            'tax_amount' => 0,
+            'total_amount' => 0,
+            'currency' => 'SAR',
+            'priority' => 'standard',
+        ]);
+
+        $this->actingAs($customer, 'sanctum');
+        $this->postJson("/api/v1/orders/{$order->id}/payments", ['method' => 'card'])
+            ->assertUnprocessable();
+        $this->assertDatabaseCount('payments', 0);
+
+        $this->actingAs($admin, 'sanctum');
+        $this->postJson("/api/v1/admin/orders/{$order->id}/quote", [
+            'quote_subtotal' => '100.00',
+            'quote_notes' => 'معاينة وتكلفة الخدمة',
+        ])->assertOk();
+
+        $this->assertSame(Order::QUOTE_STATUS_AWAITING_APPROVAL, $order->fresh()->quote_status);
+        $this->assertSame('115.00', $order->fresh()->total_amount);
+
+        $this->actingAs($customer, 'sanctum');
+        $this->postJson("/api/v1/orders/{$order->id}/payments", ['method' => 'card'])
+            ->assertUnprocessable();
+        $this->assertDatabaseCount('payments', 0);
+
+        $this->postJson("/api/v1/orders/{$order->id}/quote/approve")->assertOk();
+        $this->assertTrue($order->fresh()->isPaymentAllowed());
+
+        $this->postJson("/api/v1/orders/{$order->id}/payments", ['method' => 'card'])
+            ->assertCreated()
+            ->assertJsonPath('data.payment.amount', '115.00');
+    }
+
     public function test_approval_and_rejection_notify_only_active_admins_without_duplicates(): void
     {
         $admin = User::factory()->create([

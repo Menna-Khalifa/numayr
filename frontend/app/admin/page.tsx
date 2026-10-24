@@ -165,7 +165,8 @@ export default function AdminDashboardPage() {
   }, []);
 
   useEffect(() => {
-    void loadDashboard();
+    const scheduled = queueMicrotask(() => { void loadDashboard(); });
+    void scheduled;
   }, [loadDashboard]);
 
   const maxDaily = useMemo(() => {

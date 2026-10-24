@@ -264,6 +264,8 @@ Route::prefix('v1')->group(function () {
 
         );
 
+        Route::post('/orders/{order}/payments/confirm', [PaymentWebhookController::class, 'confirmCustomerReturn'])->middleware('throttle:payment-webhook');
+
         Route::get(
 
             '/orders/{order}/payments',
@@ -351,6 +353,8 @@ Route::prefix('v1')->group(function () {
             [SubscriptionController::class, 'show']
 
         );
+
+        Route::post('/subscriptions/{subscription}/payments/confirm', [PaymentWebhookController::class, 'confirmSubscriptionReturn'])->middleware('throttle:payment-webhook');
 
         Route::post(
 

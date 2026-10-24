@@ -42,6 +42,7 @@ return [
         ),
         'channel' => 'sms',
         'timeout' => 15,
+        'otp_ttl_minutes' => 5,
     ],
     'sms' => [
         'driver' => env('SMS_DRIVER', 'log'),

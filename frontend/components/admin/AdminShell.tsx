@@ -115,7 +115,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
   }, [router]);
 
   useEffect(() => {
-    void loadSession();
+    queueMicrotask(() => { void loadSession(); });
 
     const update = () => void loadSession();
     window.addEventListener("numayr:notifications-updated", update);
@@ -126,7 +126,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
   }, [loadSession]);
 
   useEffect(() => {
-    setMobileMenuOpen(false);
+    queueMicrotask(() => setMobileMenuOpen(false));
   }, [pathname]);
 
   const currentTitle = useMemo(() => pageTitle(pathname), [pathname]);

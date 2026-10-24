@@ -154,7 +154,7 @@ class RegistrationOtpController extends Controller
                 'channel' => 'sms',
                 'purpose' => 'registration',
                 'otp_hash' => Hash::make($otp),
-                'expires_at' => now()->addMinutes(10),
+                'expires_at' => now()->addMinutes((int) config('services.authentica.otp_ttl_minutes', 5)),
                 'attempts' => 0,
             ]);
 

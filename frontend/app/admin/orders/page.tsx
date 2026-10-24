@@ -167,7 +167,8 @@ export default function AdminOrdersPage() {
   }, [page, paymentStatus, search, status]);
 
   useEffect(() => {
-    void loadOrders();
+    const scheduled = queueMicrotask(() => { void loadOrders(); });
+    void scheduled;
   }, [loadOrders]);
 
   function handleSearch(event: FormEvent<HTMLFormElement>) {

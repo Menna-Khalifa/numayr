@@ -127,6 +127,7 @@ export default function SubscriptionsPage() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [cancellingId, setCancellingId] = useState<number | null>(null);
 
   const [selectedPlan, setSelectedPlan] =
     useState<SubscriptionPlan | null>(null);
@@ -187,6 +188,28 @@ export default function SubscriptionsPage() {
 
     void loadPage();
   }, [router]);
+
+  async function cancelPendingSubscription(subscriptionId: number) {
+    if (cancellingId !== null) return;
+    if (!window.confirm("هل تريد إلغاء الاشتراك غير المدفوع؟ سيتم التحقق من أن محاولة الدفع لدى ميسر لم تُستخدم.")) return;
+    const token = getAuthToken();
+    if (!token) { router.replace("/login"); return; }
+    setCancellingId(subscriptionId);
+    setError("");
+    try {
+      const response = await apiRequest<{ data: { subscription: Subscription } }>(
+        `/subscriptions/${subscriptionId}/cancel`,
+        { method: "POST", token }
+      );
+      setSubscriptions((items) => items.map((item) =>
+        item.id === subscriptionId ? response.data.subscription : item));
+    } catch (exception) {
+      setError(exception instanceof ApiError ? exception.message :
+        "تعذر إلغاء محاولة الدفع، راجع حالتها قبل تكرار الاشتراك.");
+    } finally {
+      setCancellingId(null);
+    }
+  }
 
   function choosePlan(plan: SubscriptionPlan) {
     setSelectedPlan(plan);
@@ -278,6 +301,8 @@ export default function SubscriptionsPage() {
                 <CurrentSubscriptionCard
                   key={subscription.id}
                   subscription={subscription}
+                  onCancel={cancelPendingSubscription}
+                  cancelling={cancellingId === subscription.id}
                 />
               ))}
             </div>
@@ -597,8 +622,12 @@ function TrustItem({
 
 function CurrentSubscriptionCard({
   subscription,
+  onCancel,
+  cancelling,
 }: {
   subscription: Subscription;
+  onCancel: (id: number) => void;
+  cancelling: boolean;
 }) {
   const status = subscription.status;
 
@@ -642,6 +671,12 @@ function CurrentSubscriptionCard({
           </p>
         </div>
       </div>
+      {status === "pending" ? (
+        <button type="button" disabled={cancelling} onClick={() => onCancel(subscription.id)}
+          className="mt-4 rounded-xl border border-amber-200 px-4 py-2 text-xs font-bold text-amber-800 disabled:opacity-50">
+          {cancelling ? "جاري التحقق من ميسر..." : "إلغاء الاشتراك غير المدفوع"}
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -664,6 +699,7 @@ function PlanSelectionModal({
     []
   );
 
+  const router = useRouter();
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
 
@@ -717,6 +753,7 @@ function PlanSelectionModal({
 
     setSaved(true);
     setError("");
+    router.push("/subscriptions/checkout");
   }
 
   return (
@@ -1005,12 +1042,11 @@ function PlanSelectionModal({
 
                 <div>
                   <p className="text-xs font-extrabold text-[#0d2b4e]">
-                    خطوة الدفع مؤجلة حاليًا
+                    إتمام الاشتراك عبر بوابة الدفع
                   </p>
 
                   <p className="mt-1 text-[10px] font-bold leading-5 text-[#8195a2]">
-                    سنحفظ اختيارك فقط. إنشاء الاشتراك
-                    ومحاولة الدفع سيتمان عند ربط بوابة الدفع.
+                    بعد تأكيد اختيارك ستنتقل إلى نموذج الدفع الآمن. لن يتفعّل الاشتراك قبل تأكيد الدفع لدى ميسر.
                   </p>
                 </div>
               </div>
@@ -1021,7 +1057,7 @@ function PlanSelectionModal({
               onClick={saveSelection}
               className="mt-5 flex h-[54px] w-full items-center justify-center gap-2 rounded-[16px] bg-[#0d2b4e] text-xs font-extrabold text-white"
             >
-              حفظ الاختيار للمتابعة لاحقًا
+              المتابعة إلى الدفع الآمن
               <ChevronLeft className="h-4 w-4" />
             </button>
           </div>

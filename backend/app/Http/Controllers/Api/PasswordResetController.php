@@ -77,7 +77,7 @@ $phone = \App\Support\SaudiPhone::normalize($inputPhone) ?? $inputPhone;
                 'channel' => 'sms',
                 'purpose' => 'password_reset',
                 'otp_hash' => Hash::make($otp),
-                'expires_at' => now()->addMinutes(10),
+                'expires_at' => now()->addMinutes((int) config('services.authentica.otp_ttl_minutes', 5)),
                 'attempts' => 0,
             ]);
 
