@@ -41,4 +41,23 @@ class MoyasarPreflightTest extends TestCase
         $this->assertSame(0, Artisan::call('payments:preflight'));
         $this->assertStringNotContainsString('sk_test_example', Artisan::output());
     }
+    public function test_live_preflight_blocks_localhost_and_placeholder_credentials(): void
+    {
+        config()->set('payments.default', 'moyasar');
+        config()->set('services.moyasar.mode', 'live');
+        config()->set('services.moyasar.secret_key', 'sk_live_placeholder');
+        config()->set('services.moyasar.publishable_key', 'pk_live_placeholder');
+        config()->set('services.moyasar.base_url', 'https://api.moyasar.com/v1');
+        config()->set('services.moyasar.callback_url', 'https://localhost/payment/callback');
+        config()->set('services.moyasar.webhook_secret', 'placeholder-webhook-secret-123456');
+        config()->set('app.url', 'https://localhost');
+
+        $this->assertSame(1, Artisan::call('payments:preflight', ['--live' => true]));
+        $output = Artisan::output();
+        $this->assertStringContainsString('Backend is not localhost', $output);
+        $this->assertStringContainsString('Live keys are not obvious placeholders', $output);
+        $this->assertStringContainsString('Webhook secret is not an obvious placeholder', $output);
+        $this->assertStringNotContainsString('sk_live_placeholder', $output);
+    }
+
 }
