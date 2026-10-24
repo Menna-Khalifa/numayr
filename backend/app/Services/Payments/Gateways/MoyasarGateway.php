@@ -25,6 +25,15 @@ class MoyasarGateway implements PaymentGateway
             throw new RuntimeException('Moyasar secret key is not configured.');
         }
 
+        $mode = config('services.moyasar.mode', 'test');
+        $prefix = $mode === 'live' ? 'sk_live_' : 'sk_test_';
+        if (!in_array($mode, ['test', 'live'], true)
+            || !str_starts_with($key, $prefix)) {
+            throw new RuntimeException(
+                'Moyasar secret key does not match the configured payment mode.'
+            );
+        }
+
         return Http::withBasicAuth($key, '')
             ->acceptJson()
             ->asJson()
