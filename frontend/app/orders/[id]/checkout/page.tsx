@@ -40,6 +40,7 @@ export default function OrderCheckoutPage() {
   const [error, setError] = useState("");
   const [ready, setReady] = useState(false);
   const [started, setStarted] = useState(false);
+  const [existingPaymentId, setExistingPaymentId] = useState<number | null>(null);
 
   useEffect(() => {
     if (!getAuthToken()) router.replace("/login");
@@ -79,8 +80,10 @@ export default function OrderCheckoutPage() {
       const checkout = result.data.checkout;
       const payment = result.data.payment;
       if (!checkout?.client_secret || !checkout.intent_id || !checkout.publishable_key) {
-        throw new Error("توجد محاولة دفع سابقة تحتاج مراجعة حالتها قبل إنشاء محاولة جديدة");
+        setExistingPaymentId(payment.id);
+        throw new Error("توجد محاولة دفع سابقة. يمكن إغلاقها فقط إذا تأكدنا أنها غير منفذة لدى ميسر.");
       }
+      setExistingPaymentId(null);
       const amount = Math.round(Number(payment.amount) * 100);
       if (!Number.isSafeInteger(amount) || amount < 100 || payment.currency !== "SAR") {
         throw new Error("مبلغ الدفع غير صالح");
@@ -112,6 +115,25 @@ export default function OrderCheckoutPage() {
     }
   }
 
+  async function releaseUnusedAttempt() {
+    const token = getAuthToken();
+    if (!token || !existingPaymentId || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      await apiRequest(`/orders/${params.id}/payments/${existingPaymentId}/abandon`, {
+        token,
+        method: "POST",
+      });
+      setExistingPaymentId(null);
+      setError("تم إغلاق المحاولة غير المنفذة. اضغط الانتقال إلى نموذج الدفع مجددًا.");
+    } catch (exception) {
+      setError(exception instanceof Error ? exception.message : "تعذر التأكد من حالة الدفع؛ لا تعاود الدفع قبل المراجعة");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <AppShell>
       <main className="mx-auto max-w-xl rounded-3xl border border-slate-200 bg-white p-6">
@@ -124,6 +146,7 @@ export default function OrderCheckoutPage() {
           </button>
         )}
         {error && <p role="alert" className="mt-4 text-sm text-red-700">{error}</p>}
+        {existingPaymentId !== null && <button type="button" disabled={busy} onClick={() => void releaseUnusedAttempt()} className="mt-3 rounded-xl border border-sky-700 px-4 py-2 text-sky-800 disabled:opacity-50">التحقق من المحاولة السابقة وإغلاقها إن لم تُنفذ</button>}
         <div id="numayr-moyasar-form" dir="ltr" className="mt-5" />
         <Link className="mt-6 block text-sm text-sky-800" href={`/orders/${params.id}`}>العودة إلى تفاصيل الطلب</Link>
       </main>
