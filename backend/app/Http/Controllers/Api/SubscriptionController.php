@@ -84,6 +84,19 @@ class SubscriptionController extends Controller
         Request $request,
         PaymentGatewayManager $gatewayManager
     ): JsonResponse {
+        // Do not charge real money for subscriptions until invoicing and
+        // provider-hosted end-to-end settlement have been accepted.
+        if (
+            config('payments.default') === 'moyasar'
+            && config('services.moyasar.mode') === 'live'
+            && ! config('payments.subscriptions_live_enabled', false)
+        ) {
+            throw ValidationException::withMessages([
+                'subscription' => [
+                    'الدفع الحقيقي للاشتراكات غير متاح حتى اعتماد الفواتير واختبارات بوابة الدفع',
+                ],
+            ]);
+        }
         $validated = $request->validate([
             'plan_code' => [
                 'required',

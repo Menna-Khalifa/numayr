@@ -507,4 +507,25 @@ class SubscriptionFlowTest extends TestCase
             ],
         ]);
     }
+    public function test_live_subscription_checkout_is_blocked_until_invoicing_is_approved(): void
+    {
+        Config::set('payments.default', 'moyasar');
+        Config::set('services.moyasar.mode', 'live');
+        Config::set('payments.subscriptions_live_enabled', false);
+
+        $user = User::factory()->create();
+        [$address, $cooler] = $this->createLocationWithCooler($user);
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/v1/subscriptions', [
+            'plan_code' => 'peace_of_mind',
+            'address_id' => $address->id,
+            'cooler_ids' => [$cooler->id],
+            'method' => 'card',
+        ])->assertUnprocessable()->assertJsonValidationErrors('subscription');
+
+        $this->assertDatabaseCount('subscriptions', 0);
+        $this->assertDatabaseCount('payments', 0);
+    }
+
 }
