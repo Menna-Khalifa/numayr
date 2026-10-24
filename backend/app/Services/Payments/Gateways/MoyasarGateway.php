@@ -71,6 +71,13 @@ class MoyasarGateway implements PaymentGateway
             throw new RuntimeException('Moyasar callback URL is not configured.');
         }
 
+        if (app()->environment('production')
+            && strtolower((string) parse_url($callbackUrl, PHP_URL_SCHEME)) !== 'https') {
+            throw new RuntimeException(
+                'Moyasar production callback must use public HTTPS.'
+            );
+        }
+
         $currency = strtoupper($payment->currency);
 
         if ($currency !== 'SAR') {
