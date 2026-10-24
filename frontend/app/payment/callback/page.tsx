@@ -17,7 +17,7 @@ function PaymentReturnContent() {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    const order = sessionStorage.getItem("numayr-moyasar-return-order");
+    const order = sessionStorage.getItem("numayr-moyasar-return-order") ?? params.get("order");
     const token = getAuthToken();
     queueMicrotask(() => setOrderId(order));
     if (!order || !reference || !token) {
