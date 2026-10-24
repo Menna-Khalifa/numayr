@@ -699,6 +699,60 @@ class PaymentWebhookController extends Controller
                 'cancelled_at' => null,
             ]);
 
+            // Issued once per payment; webhook retries and customer returns
+            // must never duplicate subscription invoices.
+            $gross = (float) $payment->amount;
+            $taxRate = (float) config('payments.subscription_invoice_tax_rate', 0);
+            $included = (bool) config('payments.subscription_invoice_prices_include_tax', true);
+            $subtotal = $included
+                ? round($gross / (1 + $taxRate / 100), 2)
+                : $gross;
+            $tax = $included
+                ? round($gross - $subtotal, 2)
+                : round($gross * $taxRate / 100, 2);
+
+            // A subscription's stored price is the actual charge: don't
+            // silently add a tax amount beyond the provider-settled amount.
+            if (! $included && $tax > 0) {
+                throw new \RuntimeException(
+                    'Subscription tax setting must be included in the charged price.'
+                );
+            }
+
+            Invoice::firstOrCreate(
+                ['payment_id' => $payment->id],
+                [
+                    'invoice_number' => $this->generateInvoiceNumber(),
+                    'order_id' => null,
+                    'subscription_id' => $subscription->id,
+                    'user_id' => $subscription->user_id,
+                    'status' => Invoice::STATUS_PAID,
+                    'customer_name' => $subscription->user?->name,
+                    'customer_email' => $subscription->user?->email,
+                    'customer_phone' => $subscription->user?->phone,
+                    'service_code' => 'subscription:'.$subscription->plan_code,
+                    'service_name' => $subscription->plan_name_ar,
+                    'subtotal' => $subtotal,
+                    'tax_rate' => $taxRate,
+                    'tax_amount' => $tax,
+                    'total_amount' => $gross,
+                    'currency' => $payment->currency,
+                    'address_snapshot' => $subscription->address?->toArray(),
+                    'service_data' => [
+                        'subscription_id' => $subscription->id,
+                        'billing_cycle' => $subscription->billing_cycle,
+                        'plan_code' => $subscription->plan_code,
+                    ],
+                    'metadata' => [
+                        'payment_type' => 'subscription',
+                        'transaction_id' => $updateData['transaction_id'] ?? null,
+                        'tax_configuration_requires_merchant_approval' => true,
+                    ],
+                    'issued_at' => $paidAt,
+                    'paid_at' => $paidAt,
+                ]
+            );
+
             return;
         }
 

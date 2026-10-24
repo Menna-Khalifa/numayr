@@ -13,6 +13,7 @@ class InvoiceResource extends JsonResource
             'id' => $this->id,
             'invoice_number' => $this->invoice_number,
             'order_id' => $this->order_id,
+            'subscription_id' => $this->subscription_id,
             'payment_id' => $this->payment_id,
             'status' => $this->status,
 
