@@ -34,6 +34,9 @@ type Order = {
   payment_status?: string | null;
   priority?: string | null;
   pricing_model?: string | null;
+  quote_status?: string | null;
+  quote_subtotal?: string | null;
+  quote_notes?: string | null;
   quantity?: number | string | null;
   unit?: string | null;
   base_price?: number | string | null;
@@ -164,6 +167,9 @@ export default function AdminOrderDetailPage() {
   const [order, setOrder] = useState<Order | null>(null);
   const [nextStatus, setNextStatus] = useState("");
   const [note, setNote] = useState("");
+  const [quoteSubtotal, setQuoteSubtotal] = useState("");
+  const [quoteNotes, setQuoteNotes] = useState("");
+  const [savingQuote, setSavingQuote] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -216,6 +222,37 @@ export default function AdminOrderDetailPage() {
 
     return [];
   }, [order]);
+
+  async function submitQuote() {
+    if (!order || savingQuote) return;
+    const token = getAuthToken();
+    if (!token) return;
+    const amount = Number(quoteSubtotal);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setError("أدخل سعرًا صحيحًا قبل إرسال العرض.");
+      return;
+    }
+    setSavingQuote(true);
+    setError("");
+    setSuccess("");
+    try {
+      const response = await apiRequest<OrderResponse>(
+        `/admin/orders/${order.id}/quote`,
+        { method: "POST", token, body: JSON.stringify({
+          quote_subtotal: amount,
+          quote_notes: quoteNotes.trim() || null,
+        }) },
+      );
+      setOrder(response.data.order);
+      setQuoteSubtotal("");
+      setQuoteNotes("");
+      setSuccess("تم تحديد السعر وإرسال إشعار للعميل لمراجعته قبل الدفع.");
+    } catch (exception) {
+      setError(exception instanceof ApiError ? exception.message : "تعذر تحديد السعر");
+    } finally {
+      setSavingQuote(false);
+    }
+  }
 
   async function updateStatus() {
     if (!order || !nextStatus || saving) return;
@@ -409,6 +446,41 @@ export default function AdminOrderDetailPage() {
 
       <section className="grid gap-6 xl:grid-cols-[1.1fr_.9fr]">
         <div className="space-y-6">
+          {order.pricing_model === "quote" ? (
+            <article className="rounded-[26px] border border-[#dfecef] bg-white p-5 shadow-sm sm:p-6">
+              <h2 className="text-base font-extrabold text-[#0d2b4e]">معاينة الخدمة وتحديد السعر</h2>
+              <p className="mt-2 text-xs leading-6 text-[#587183]">
+                {order.quote_status === "awaiting_inspection"
+                  ? "الطلب بانتظار المعاينة. بعد تحديد التكلفة يدويًا، يصل العرض للعميل للموافقة ثم الدفع."
+                  : order.quote_status === "awaiting_approval"
+                    ? "تم إرسال السعر للعميل وبانتظار موافقته قبل الدفع."
+                    : order.quote_status === "approved"
+                      ? "وافق العميل على السعر، ويمكنه الآن الدفع."
+                      : "حالة عرض السعر: " + (order.quote_status || "لم يحدد")}
+              </p>
+              {order.quote_subtotal != null ? (
+                <p className="mt-2 text-sm font-bold text-[#0d2b4e]">قيمة العرض قبل الضريبة: {money(order.quote_subtotal, order.currency)}</p>
+              ) : null}
+              {order.quote_notes ? <p className="mt-2 text-xs text-[#587183]">{order.quote_notes}</p> : null}
+              {order.status === "pending" && (order.quote_status === "awaiting_inspection" || order.quote_status === "rejected") ? (
+                <div className="mt-4 space-y-3">
+                  <label className="block text-xs font-bold">السعر قبل الضريبة (ريال)</label>
+                  <input type="number" min="0.01" step="0.01" value={quoteSubtotal}
+                    onChange={(e) => setQuoteSubtotal(e.target.value)}
+                    className="h-11 w-full rounded-xl border border-[#dce9ed] px-4" />
+                  <label className="block text-xs font-bold">تفاصيل المعاينة والتكلفة</label>
+                  <textarea rows={3} maxLength={2000} value={quoteNotes}
+                    onChange={(e) => setQuoteNotes(e.target.value)}
+                    className="w-full rounded-xl border border-[#dce9ed] p-3" />
+                  <button type="button" disabled={savingQuote || !(Number(quoteSubtotal) > 0)}
+                    onClick={() => void submitQuote()}
+                    className="w-full rounded-xl bg-[#0d2b4e] px-4 py-3 text-sm font-bold text-white disabled:opacity-50">
+                    {savingQuote ? "جاري إرسال العرض..." : "اعتماد التكلفة وإرسال العرض للعميل"}
+                  </button>
+                </div>
+              ) : null}
+            </article>
+          ) : null}
           <article className="rounded-[26px] border border-[#dfecef] bg-white p-5 shadow-[0_12px_34px_rgba(13,43,78,.04)] sm:p-6">
             <h2 className="text-[15px] font-extrabold text-[#0d2b4e]">
               تفاصيل الخدمة
