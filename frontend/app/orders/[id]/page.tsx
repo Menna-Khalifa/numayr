@@ -16,6 +16,7 @@ import {
   ImageIcon,
   MapPin,
   PackageCheck,
+  ReceiptText,
   Snowflake,
   TimerReset,
   Trash2,
@@ -544,6 +545,16 @@ export default function OrderDetailsPage() {
                       الدفع الإلكتروني عبر ميسر
                     </Link>
                   ) : null}
+
+                {order.payment_status === "paid" ? (
+                  <Link
+                    href={`/invoices?order=${order.id}`}
+                    className="mt-5 flex items-center justify-center gap-2 rounded-[16px] border border-[#16a6c9]/25 bg-[#eaf8fb] px-5 py-3 text-sm font-extrabold text-[#0d2b4e] transition hover:bg-[#d7f1f8]"
+                  >
+                    <ReceiptText className="h-4 w-4 text-[#16a6c9]" />
+                    عرض فاتورة هذا الطلب
+                  </Link>
+                ) : null}
 
                 <div className="mt-5 rounded-[16px] border border-[#dcebef] bg-[#f4fafb] p-4">
                   <p className="text-[10px] font-bold text-[#879aa7]">
