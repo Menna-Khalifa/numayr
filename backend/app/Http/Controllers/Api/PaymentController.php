@@ -187,6 +187,15 @@ class PaymentController extends Controller
             'message' => 'تم إنشاء محاولة الدفع بنجاح',
             'data' => [
                 'payment' => new PaymentResource($payment),
+                // Payment-intent credential: returned only to the owner on creation.
+                // Never persist or expose it in payment listings or logs.
+                'checkout' => $provider === 'moyasar' ? [
+                    'intent_id' => $gatewayResult['reference'] ?? null,
+                    'client_secret' => $gatewayResult['client_secret'] ?? null,
+                    'expires_at' => $gatewayResult['expires_at'] ?? null,
+                    'publishable_key' => config('services.moyasar.publishable_key'),
+                    'callback_url' => config('services.moyasar.callback_url'),
+                ] : null,
             ],
         ], $result['created'] ? 201 : 200);
     }
