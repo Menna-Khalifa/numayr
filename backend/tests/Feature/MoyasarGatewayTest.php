@@ -51,6 +51,29 @@ class MoyasarGatewayTest extends TestCase
         Http::assertSentCount(1);
     }
 
+    public function test_test_mode_refuses_live_secret_without_calling_provider(): void
+    {
+        config()->set('services.moyasar.mode', 'test');
+        config()->set('services.moyasar.secret_key', 'sk_live_should_not_be_used');
+        Http::fake();
+
+        $payment = new Payment();
+        $payment->id = 12;
+        $payment->amount = '15.75';
+        $payment->currency = 'SAR';
+
+        try {
+            app(MoyasarGateway::class)->createPayment($payment);
+            $this->fail('Expected live credentials to be blocked in test mode.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame(
+                'Moyasar secret key does not match the configured payment mode.',
+                $exception->getMessage()
+            );
+        }
+        Http::assertNothingSent();
+    }
+
     public function test_missing_secret_key_blocks_payment_without_http_request(): void
     {
         config()->set('services.moyasar.secret_key', null);
