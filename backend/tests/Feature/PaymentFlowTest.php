@@ -747,6 +747,38 @@ class PaymentFlowTest extends TestCase
         $this->assertDatabaseCount('invoices', 0);
     }
 
+    public function test_failed_moyasar_return_unblocks_retry_without_invoice(): void
+    {
+        Config::set('services.moyasar.secret_key', 'sk_test_stub');
+        $user = User::factory()->create();
+        $order = $this->createOrder($user);
+        $payment = Payment::create([
+            'order_id' => $order->id,
+            'provider' => 'moyasar',
+            'method' => 'card',
+            'status' => Payment::STATUS_PROCESSING,
+            'amount' => '115.00',
+            'currency' => 'SAR',
+            'provider_reference' => 'intent-failed',
+        ]);
+        $paymentId = '77777777-7777-4777-8777-777777777777';
+        \Illuminate\Support\Facades\Http::fake([
+            'api.moyasar.com/*' => \Illuminate\Support\Facades\Http::response([
+                'id' => $paymentId,
+                'status' => 'failed',
+                'description' => 'NUMAYR Payment #' . $payment->id,
+                'amount' => 11500,
+                'currency' => 'SAR',
+            ]),
+        ]);
+        Sanctum::actingAs($user);
+        $this->postJson("/api/v1/orders/{$order->id}/payments/confirm", [
+            'provider_payment_id' => $paymentId,
+        ])->assertOk()->assertJsonPath('data.status', Payment::STATUS_FAILED);
+        $this->assertSame(Payment::STATUS_FAILED, $order->fresh()->payment_status);
+        $this->assertDatabaseCount('invoices', 0);
+    }
+
     private function createOrder(
         User $user,
         string $paymentStatus = Payment::STATUS_PENDING
