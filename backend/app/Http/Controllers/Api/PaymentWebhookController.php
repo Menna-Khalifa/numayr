@@ -39,7 +39,7 @@ class PaymentWebhookController extends Controller
         $providerResult = $gatewayManager->driver('moyasar')
             ->verifyPayment($validated['provider_payment_id']);
 
-        $payment = DB::transaction(function () use (
+        $result = DB::transaction(function () use (
             $orderModel,
             $validated,
             $providerResult
