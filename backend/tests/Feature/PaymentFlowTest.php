@@ -672,6 +672,81 @@ class PaymentFlowTest extends TestCase
         $this->assertSame(Payment::STATUS_PROCESSING, $payment->fresh()->status);
     }
 
+    public function test_moyasar_paid_webhook_verifies_final_payment_and_settles_intent_order(): void
+    {
+        Config::set('services.moyasar.secret_key', 'sk_test_stub');
+        Config::set('services.moyasar.webhook_secret', 'test-webhook-token');
+        $user = User::factory()->create();
+        $order = $this->createOrder($user);
+        $payment = Payment::create([
+            'order_id' => $order->id,
+            'provider' => 'moyasar',
+            'method' => 'card',
+            'status' => Payment::STATUS_PROCESSING,
+            'amount' => '115.00',
+            'currency' => 'SAR',
+            'provider_reference' => 'intent-xyz',
+        ]);
+        $finalId = '33333333-3333-4333-8333-333333333333';
+        \Illuminate\Support\Facades\Http::fake([
+            'api.moyasar.com/*' => \Illuminate\Support\Facades\Http::response([
+                'id' => $finalId, 'status' => 'paid',
+                'description' => 'NUMAYR Payment #' . $payment->id,
+                'amount' => 11500, 'currency' => 'SAR',
+            ]),
+        ]);
+        $url = '/api/v1/payments/webhooks/moyasar';
+        $body = [
+            'id' => '44444444-4444-4444-8444-444444444444',
+            'type' => 'payment_paid',
+            'secret_token' => 'test-webhook-token',
+            'data' => [
+                'id' => $finalId, 'status' => 'paid',
+                'amount' => 11500, 'currency' => 'SAR',
+            ],
+        ];
+        $this->postJson($url, $body)->assertOk()->assertJsonPath('data.status', Payment::STATUS_PAID);
+        $this->assertSame($finalId, $payment->fresh()->transaction_id);
+        $this->assertSame('intent-xyz', $payment->fresh()->provider_reference);
+        $this->assertSame(Payment::STATUS_PAID, $order->fresh()->payment_status);
+        $this->assertDatabaseCount('invoices', 1);
+
+        // An unauthenticated replay must not get a successful duplicate acknowledgement.
+        $body['secret_token'] = 'wrong';
+        $this->postJson($url, $body)->assertUnauthorized();
+        $this->assertDatabaseCount('invoices', 1);
+    }
+
+    public function test_moyasar_webhook_rejects_amount_mismatch_without_issuing_invoice(): void
+    {
+        Config::set('services.moyasar.secret_key', 'sk_test_stub');
+        Config::set('services.moyasar.webhook_secret', 'test-webhook-token');
+        $user = User::factory()->create();
+        $order = $this->createOrder($user);
+        $payment = Payment::create([
+            'order_id' => $order->id,
+            'provider' => 'moyasar', 'method' => 'card',
+            'status' => Payment::STATUS_PROCESSING,
+            'amount' => '115.00', 'currency' => 'SAR',
+            'provider_reference' => 'intent-other',
+        ]);
+        $finalId = '55555555-5555-4555-8555-555555555555';
+        \Illuminate\Support\Facades\Http::fake([
+            'api.moyasar.com/*' => \Illuminate\Support\Facades\Http::response([
+                'id' => $finalId, 'status' => 'paid',
+                'description' => 'NUMAYR Payment #' . $payment->id,
+                'amount' => 100, 'currency' => 'SAR',
+            ]),
+        ]);
+        $this->postJson('/api/v1/payments/webhooks/moyasar', [
+            'id' => '66666666-6666-4666-8666-666666666666',
+            'type' => 'payment_paid', 'secret_token' => 'test-webhook-token',
+            'data' => ['id' => $finalId, 'status' => 'paid'],
+        ])->assertOk();
+        $this->assertSame(Payment::STATUS_PROCESSING, $payment->fresh()->status);
+        $this->assertDatabaseCount('invoices', 0);
+    }
+
     private function createOrder(
         User $user,
         string $paymentStatus = Payment::STATUS_PENDING
