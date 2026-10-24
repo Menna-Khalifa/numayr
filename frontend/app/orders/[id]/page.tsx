@@ -50,6 +50,9 @@ type Order = {
   service_code: string;
   service_name: string;
   pricing_model: string;
+  quote_status?: string | null;
+  quote_subtotal?: string | null;
+  quote_notes?: string | null;
   quantity: string | null;
   unit: string | null;
   base_price: string;
@@ -116,6 +119,8 @@ export default function OrderDetailsPage() {
   const [error, setError] = useState("");
 
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [quoteBusy, setQuoteBusy] = useState(false);
+  const [quoteMessage, setQuoteMessage] = useState("");
 
   useEffect(() => {
     const token = getAuthToken();
@@ -161,6 +166,28 @@ export default function OrderDetailsPage() {
 
     void loadOrder();
   }, [params.id, router]);
+
+  async function decideQuote(action: "approve" | "reject") {
+    const token = getAuthToken();
+    if (!token || !order || quoteBusy) return;
+    setQuoteBusy(true);
+    setQuoteMessage("");
+    try {
+      const response = await apiRequest<OrderResponse>(
+        `/orders/${order.id}/quote/${action}`,
+        { method: "POST", token }
+      );
+      setOrder(response.data.order);
+      setQuoteMessage(action === "approve"
+        ? "تم اعتماد السعر. يمكنك الآن إتمام الدفع."
+        : "تم رفض العرض وإبلاغ الإدارة.");
+    } catch (exception) {
+      setQuoteMessage(exception instanceof ApiError
+        ? exception.message : "تعذر تحديث قرار عرض السعر");
+    } finally {
+      setQuoteBusy(false);
+    }
+  }
 
   const history = useMemo(() => {
     return (
@@ -483,13 +510,35 @@ export default function OrderDetailsPage() {
               <div className="p-5">
                 {order.pricing_model === "quote" ? (
                   <div className="rounded-[17px] bg-[#f4fafb] p-4">
-                    <p className="text-sm font-extrabold text-[#0d2b4e]">
-                      السعر حسب الخدمة
-                    </p>
-
-                    <p className="mt-2 text-[10px] font-bold leading-5 text-[#8497a4]">
-                      طلب الصيانة لا يحتوي على دفع مقدم.
-                    </p>
+                    <p className="text-sm font-extrabold text-[#0d2b4e]">خدمة تتطلب معاينة وتسعير</p>
+                    {order.quote_status === "awaiting_inspection" || !order.quote_status ? (
+                      <p className="mt-2 text-xs leading-6 text-[#587183]">طلبك بانتظار المعاينة وتحديد السعر من الإدارة. لن يتم تحصيل أي مبلغ الآن.</p>
+                    ) : (
+                      <>
+                        <p className="mt-3 text-xs text-[#587183]">السعر قبل الضريبة: {Number(order.subtotal).toFixed(2)} ر.س</p>
+                        <p className="mt-1 text-xs text-[#587183]">الضريبة: {Number(order.tax_amount).toFixed(2)} ر.س</p>
+                        <p className="mt-2 text-lg font-extrabold text-[#0d2b4e]">الإجمالي: {Number(order.total_amount).toFixed(2)} ر.س</p>
+                        {order.quote_notes ? <p className="mt-2 text-xs leading-6 text-[#587183]">{order.quote_notes}</p> : null}
+                        {order.quote_status === "awaiting_approval" ? (
+                          <div className="mt-4 space-y-2">
+                            <p className="text-xs font-bold text-[#0d2b4e]">تم تحديد السعر وبانتظار موافقتك قبل الدفع.</p>
+                            <button type="button" disabled={quoteBusy} onClick={() => void decideQuote("approve")}
+                              className="w-full rounded-xl bg-[#16a6c9] p-3 text-sm font-bold text-white disabled:opacity-50">
+                              موافق على السعر، متابعة للدفع
+                            </button>
+                            <button type="button" disabled={quoteBusy} onClick={() => void decideQuote("reject")}
+                              className="w-full rounded-xl border border-[#dce8ec] p-3 text-xs font-bold text-[#0d2b4e] disabled:opacity-50">
+                              رفض العرض
+                            </button>
+                          </div>
+                        ) : order.quote_status === "rejected" ? (
+                          <p className="mt-3 text-xs font-bold text-amber-700">رفضت العرض، والإدارة يمكنها مراجعته.</p>
+                        ) : order.quote_status === "approved" ? (
+                          <p className="mt-3 text-xs font-bold text-emerald-700">وافقت على السعر النهائي ويمكنك إتمام الدفع.</p>
+                        ) : null}
+                      </>
+                    )}
+                    {quoteMessage ? <p role="status" className="mt-3 text-xs text-[#0d2b4e]">{quoteMessage}</p> : null}
                   </div>
                 ) : (
                   <>
@@ -535,7 +584,7 @@ export default function OrderDetailsPage() {
                   </>
                 )}
 
-                {order.pricing_model !== "quote" &&
+                {(order.pricing_model !== "quote" || order.quote_status === "approved") &&
                   order.payment_status !== "paid" &&
                   order.status !== "cancelled" ? (
                     <Link
