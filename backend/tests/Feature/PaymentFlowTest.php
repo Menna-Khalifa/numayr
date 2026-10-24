@@ -817,4 +817,66 @@ class PaymentFlowTest extends TestCase
             ],
         ]);
     }
+    public function test_customer_can_release_unused_moyasar_intent_for_retry(): void
+    {
+        Config::set('services.moyasar.mode', 'test');
+        Config::set('services.moyasar.secret_key', 'sk_test_stub');
+        $user = User::factory()->create();
+        $order = $this->createOrder($user);
+        $payment = Payment::create([
+            'order_id' => $order->id,
+            'provider' => 'moyasar',
+            'method' => 'card',
+            'status' => Payment::STATUS_PROCESSING,
+            'amount' => '115.00',
+            'currency' => 'SAR',
+            'provider_reference' => 'intent-recover',
+        ]);
+        \\Illuminate\\Support\\Facades\\Http::fake(function ($request) {
+            if ($request->method() === 'POST') {
+                return \\Illuminate\\Support\\Facades\\Http::response([
+                    'id' => 'intent-recover', 'status' => 'canceled',
+                ]);
+            }
+            return \\Illuminate\\Support\\Facades\\Http::response([
+                'id' => 'intent-recover', 'status' => 'created',
+                'expires_at' => now()->addMinutes(15)->toIso8601String(),
+            ]);
+        });
+        Sanctum::actingAs($user);
+        $this->postJson("/api/v1/orders/{$order->id}/payments/{$payment->id}/abandon")
+            ->assertOk();
+        $this->assertSame(Payment::STATUS_FAILED, $payment->fresh()->status);
+        $this->assertSame(Payment::STATUS_FAILED, $order->fresh()->payment_status);
+        $this->assertDatabaseCount('invoices', 0);
+    }
+
+    public function test_fulfilled_moyasar_intent_cannot_be_released_for_retry(): void
+    {
+        Config::set('services.moyasar.mode', 'test');
+        Config::set('services.moyasar.secret_key', 'sk_test_stub');
+        $user = User::factory()->create();
+        $order = $this->createOrder($user);
+        $payment = Payment::create([
+            'order_id' => $order->id,
+            'provider' => 'moyasar',
+            'method' => 'card',
+            'status' => Payment::STATUS_PROCESSING,
+            'amount' => '115.00',
+            'currency' => 'SAR',
+            'provider_reference' => 'intent-fulfilled',
+        ]);
+        \\Illuminate\\Support\\Facades\\Http::fake([
+            'api.moyasar.com/*' => \\Illuminate\\Support\\Facades\\Http::response([
+                'id' => 'intent-fulfilled',
+                'status' => 'fulfilled',
+                'expires_at' => now()->addMinutes(15)->toIso8601String(),
+            ]),
+        ]);
+        Sanctum::actingAs($user);
+        $this->postJson("/api/v1/orders/{$order->id}/payments/{$payment->id}/abandon")
+            ->assertUnprocessable();
+        $this->assertSame(Payment::STATUS_PROCESSING, $payment->fresh()->status);
+    }
+
 }
