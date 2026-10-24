@@ -173,18 +173,6 @@ class PaymentWebhookController extends Controller
             payload: $storedPayload
         );
 
-        if (! $event->wasRecentlyCreated) {
-            return response()->json([
-                'success' => true,
-                'duplicate' => true,
-                'message' => 'Webhook already received',
-                'data' => [
-                    'event_id' => $event->id,
-                    'processing_status' => $event->processing_status,
-                ],
-            ]);
-        }
-
         try {
             $gateway = $gatewayManager->driver($provider);
 
@@ -196,6 +184,12 @@ class PaymentWebhookController extends Controller
                 $rawPayload,
                 $signature
             )) {
+                if (! $event->wasRecentlyCreated) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Invalid webhook signature',
+                    ], 401);
+                }
                 $event->update([
                     'processing_status' => PaymentWebhookEvent::STATUS_FAILED,
                     'error_message' => 'Invalid webhook signature',
@@ -208,7 +202,62 @@ class PaymentWebhookController extends Controller
                 ], 401);
             }
 
+            // Replays must also authenticate; a matching event ID is not proof.
+            if (! $event->wasRecentlyCreated) {
+                return response()->json([
+                    'success' => true,
+                    'duplicate' => true,
+                    'message' => 'Webhook already received',
+                    'data' => [
+                        'event_id' => $event->id,
+                        'processing_status' => $event->processing_status,
+                    ],
+                ]);
+            }
+
             $parsedEvent = $gateway->parseWebhook($payload);
+
+            if ($provider === 'moyasar') {
+                // Webhook data.id is the settled payment UUID, not the intent ID
+                // stored in provider_reference. Verify it using our server key.
+                $paymentId = $parsedEvent['reference'] ?? null;
+                $verified = is_string($paymentId)
+                    ? $gateway->verifyPayment($paymentId)
+                    : null;
+
+                $description = $verified['description'] ?? null;
+                $candidateId = is_string($description)
+                    && preg_match('/^NUMAYR Payment #([1-9][0-9]*)$/', $description, $matches)
+                    ? (int) $matches[1]
+                    : null;
+                $candidate = $candidateId
+                    ? Payment::query()->where('provider', 'moyasar')->find($candidateId)
+                    : null;
+
+                if (! $candidate
+                    || $candidate->provider_reference === null
+                    || (int) ($verified['amount'] ?? -1)
+                        !== (int) round(((float) $candidate->amount) * 100)
+                    || strtoupper((string) ($verified['currency'] ?? ''))
+                        !== strtoupper((string) $candidate->currency)
+                    || ($verified['status'] ?? null) !== ($parsedEvent['status'] ?? null)
+                ) {
+                    $event->update([
+                        'processing_status' => PaymentWebhookEvent::STATUS_IGNORED,
+                        'error_message' => 'Moyasar payment verification mismatch',
+                        'processed_at' => now(),
+                    ]);
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Webhook ignored after provider verification',
+                    ]);
+                }
+
+                $parsedEvent['reference'] = $candidate->provider_reference;
+                $parsedEvent['transaction_id'] = $paymentId;
+                $parsedEvent['amount'] = $verified['amount'];
+                $parsedEvent['currency'] = $verified['currency'];
+            }
 
             $reference = $parsedEvent['reference'] ?? null;
             $status = $parsedEvent['status'] ?? null;
