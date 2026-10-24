@@ -199,6 +199,54 @@ class PaymentController extends Controller
             ],
         ], $result['created'] ? 201 : 200);
     }
+    /**
+     * Close only an unused Moyasar intent. Fulfilled or uncertain intents
+     * remain locked for reconciliation instead of risking a second charge.
+     */
+    public function abandonUnused(Request $request, int $order, int $payment): JsonResponse
+    {
+        $paymentModel = Payment::query()
+            ->where('order_id', $order)
+            ->whereHas('order', fn ($query) => $query->where('user_id', $request->user()->id))
+            ->findOrFail($payment);
+
+        if ($paymentModel->provider !== 'moyasar'
+            || ! in_array($paymentModel->status, [Payment::STATUS_PENDING, Payment::STATUS_PROCESSING], true)
+            || ! is_string($paymentModel->provider_reference)
+            || $paymentModel->provider_reference === '') {
+            throw ValidationException::withMessages([
+                'payment' => ['محاولة الدفع لا تقبل الإلغاء الآمن'],
+            ]);
+        }
+
+        // Provider confirmation must precede any local state change.
+        if (! app(\\App\\Services\\Payments\\Gateways\\MoyasarGateway::class)
+            ->cancelUnusedIntent($paymentModel->provider_reference)) {
+            throw ValidationException::withMessages([
+                'payment' => ['تعذر التأكد من عدم تنفيذ الدفع، يُرجى مراجعة حالته قبل المحاولة مرة أخرى'],
+            ]);
+        }
+
+        DB::transaction(function () use ($paymentModel) {
+            $locked = Payment::query()->lockForUpdate()->findOrFail($paymentModel->id);
+            $orderModel = Order::query()->lockForUpdate()->findOrFail($locked->order_id);
+            if (in_array($locked->status, [Payment::STATUS_PENDING, Payment::STATUS_PROCESSING], true)) {
+                $locked->update([
+                    'status' => Payment::STATUS_FAILED,
+                    'failed_at' => now(),
+                    'failure_reason' => 'Unused Moyasar intent canceled or expired before retry',
+                ]);
+                $this->syncOrderPaymentStatus($orderModel);
+            }
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'تم إغلاق محاولة الدفع غير المكتملة، يمكنك إعادة المحاولة',
+            'data' => ['payment_id' => $paymentModel->id],
+        ]);
+    }
+
     public function index(
         Request $request,
         int $order
