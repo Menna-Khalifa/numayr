@@ -85,6 +85,7 @@ export default function OrderCheckoutPage() {
       if (!Number.isSafeInteger(amount) || amount < 100 || payment.currency !== "SAR") {
         throw new Error("مبلغ الدفع غير صالح");
       }
+      sessionStorage.setItem("numayr-moyasar-return-order", params.id);
       mounted.current = true;
       setStarted(true);
       window.Moyasar.init({
