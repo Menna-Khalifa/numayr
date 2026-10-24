@@ -27,6 +27,46 @@ class SubscriptionFlowTest extends TestCase
         $this->seed(SubscriptionPlanSeeder::class);
     }
 
+    public function test_moyasar_subscription_return_activates_once_after_provider_verification(): void
+    {
+        Config::set('services.moyasar.mode', 'test');
+        Config::set('services.moyasar.secret_key', 'sk_test_stub');
+        $user = User::factory()->create();
+        [$address, $cooler] = $this->createLocationWithCooler($user);
+        $plan = SubscriptionPlan::query()->where('code', 'peace_of_mind')->firstOrFail();
+        $subscription = $this->createSubscription($user, $address, $plan, Subscription::STATUS_PENDING);
+        $subscription->coolers()->attach($cooler->id);
+        $payment = Payment::create([
+            'subscription_id' => $subscription->id,
+            'provider' => 'moyasar',
+            'method' => 'card',
+            'status' => Payment::STATUS_PROCESSING,
+            'amount' => $plan->price,
+            'currency' => $plan->currency,
+            'provider_reference' => 'intent-sub-01',
+        ]);
+        $finalId = 'a1111111-1111-4111-8111-111111111111';
+        \Illuminate\Support\Facades\Http::fake([
+            'api.moyasar.com/*' => \Illuminate\Support\Facades\Http::response([
+                'id' => $finalId,
+                'status' => 'paid',
+                'description' => 'NUMAYR Payment #' . $payment->id,
+                'amount' => (int) round((float) $plan->price * 100),
+                'currency' => $plan->currency,
+            ], 200),
+        ]);
+        Sanctum::actingAs($user);
+        $path = "/api/v1/subscriptions/{$subscription->id}/payments/confirm";
+        $this->postJson($path, ['provider_payment_id' => $finalId])
+            ->assertOk()->assertJsonPath('data.status', Payment::STATUS_PAID);
+        $this->assertSame(Subscription::STATUS_ACTIVE, $subscription->fresh()->status);
+        $startsAt = $subscription->fresh()->starts_at;
+        $this->assertNotNull($startsAt);
+        $this->postJson($path, ['provider_payment_id' => $finalId])
+            ->assertOk()->assertJsonPath('data.status', Payment::STATUS_PAID);
+        $this->assertEquals($startsAt, $subscription->fresh()->starts_at);
+    }
+
     public function test_customer_can_create_subscription_with_payment(): void
     {
         $user = User::factory()->create();
