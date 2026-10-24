@@ -142,6 +142,7 @@ class MoyasarGateway implements PaymentGateway
             'status' => $status,
             'amount' => $data['amount'] ?? null,
             'currency' => $data['currency'] ?? null,
+            'description' => $data['description'] ?? null,
         ];
     }
 
