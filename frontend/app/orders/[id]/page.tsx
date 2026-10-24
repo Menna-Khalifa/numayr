@@ -534,6 +534,17 @@ export default function OrderDetailsPage() {
                   </>
                 )}
 
+                {order.pricing_model !== "quote" &&
+                  order.payment_status !== "paid" &&
+                  order.status !== "cancelled" ? (
+                    <Link
+                      href={`/orders/${order.id}/checkout`}
+                      className="mt-5 block rounded-[16px] bg-[#16a6c9] px-5 py-3 text-center text-sm font-extrabold text-white"
+                    >
+                      الدفع الإلكتروني عبر ميسر
+                    </Link>
+                  ) : null}
+
                 <div className="mt-5 rounded-[16px] border border-[#dcebef] bg-[#f4fafb] p-4">
                   <p className="text-[10px] font-bold text-[#879aa7]">
                     حالة الدفع
