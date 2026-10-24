@@ -81,7 +81,7 @@ class PaymentWebhookController extends Controller
                 if ($paymentModel->transaction_id !== $providerPaymentId) {
                     abort(422, 'Payment was already settled with another transaction.');
                 }
-                return $paymentModel;
+                return ['payment' => $paymentModel, 'transitioned' => false];
             }
 
             $verifiedStatus = $providerResult['status'];
@@ -89,7 +89,7 @@ class PaymentWebhookController extends Controller
                 Payment::STATUS_PAID,
                 Payment::STATUS_FAILED,
             ], true)) {
-                return $paymentModel;
+                return ['payment' => $paymentModel, 'transitioned' => false];
             }
 
             if (! $paymentModel->canTransitionTo($verifiedStatus)) {
@@ -105,7 +105,7 @@ class PaymentWebhookController extends Controller
                 $this->syncOrderPaymentStatus(
                     Order::query()->lockForUpdate()->findOrFail($orderModel->id)
                 );
-                return $paymentModel;
+                return ['payment' => $paymentModel, 'transitioned' => true];
             }
 
             // The provider intent reference stays in provider_reference;
@@ -130,13 +130,14 @@ class PaymentWebhookController extends Controller
                 Order::query()->lockForUpdate()->findOrFail($orderModel->id)
             );
 
-            return $paymentModel;
+            return ['payment' => $paymentModel, 'transitioned' => true];
         });
 
-        if ($payment->status === Payment::STATUS_PAID) {
+        $payment = $result['payment'];
+        if ($result['transitioned']) {
             $this->sendStatusNotificationSafely(
                 $payment->fresh(),
-                Payment::STATUS_PAID
+                $payment->status
             );
         }
 
