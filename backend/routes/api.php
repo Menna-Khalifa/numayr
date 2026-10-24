@@ -354,6 +354,8 @@ Route::prefix('v1')->group(function () {
 
         );
 
+        Route::post('/subscriptions/{subscription}/payments/confirm', [PaymentWebhookController::class, 'confirmSubscriptionReturn'])->middleware('throttle:payment-webhook');
+
         Route::post(
 
             '/subscriptions/{subscription}/cancel',
