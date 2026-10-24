@@ -43,6 +43,16 @@ class MoyasarPreflight extends Command
                     strtolower((string) parse_url($callback, PHP_URL_HOST)),
                     ['localhost', '127.0.0.1'], true
                 ),
+                'Backend is not localhost' => !in_array(
+                    strtolower((string) parse_url($appUrl, PHP_URL_HOST)),
+                    ['localhost', '127.0.0.1'], true
+                ),
+                'Callback path is payment callback' =>
+                    parse_url($callback, PHP_URL_PATH) === '/payment/callback',
+                'Live keys are not obvious placeholders' =>
+                    !preg_match('/(example|stub|placeholder|replace|dummy|changeme)/i', $secret.$publishable),
+                'Webhook secret is not an obvious placeholder' =>
+                    !preg_match('/(example|stub|placeholder|replace|dummy|changeme)/i', $webhookSecret),
             ];
         }
 
