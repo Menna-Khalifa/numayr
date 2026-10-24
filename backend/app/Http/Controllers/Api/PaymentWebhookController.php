@@ -151,6 +151,76 @@ class PaymentWebhookController extends Controller
         ]);
     }
 
+    /**
+     * Confirm a subscription payment using the payment ID returned by Moyasar.
+     * Authenticated ownership, provider status, amount and currency are all checked.
+     */
+    public function confirmSubscriptionReturn(
+        Request $request,
+        int $subscription,
+        PaymentGatewayManager $gatewayManager
+    ): JsonResponse {
+        $validated = $request->validate([
+            'provider_payment_id' => ['required', 'string', 'uuid'],
+        ]);
+        $subscriptionModel = Subscription::query()
+            ->where('user_id', $request->user()->id)
+            ->findOrFail($subscription);
+
+        $providerId = $validated['provider_payment_id'];
+        $verified = $gatewayManager->driver('moyasar')->verifyPayment($providerId);
+        $result = DB::transaction(function () use ($subscriptionModel, $providerId, $verified) {
+            $description = $verified['description'] ?? null;
+            $candidate = Payment::query()
+                ->where('subscription_id', $subscriptionModel->id)
+                ->where('provider', 'moyasar')
+                ->get()
+                ->first(fn (Payment $p) => $description === 'NUMAYR Payment #' . $p->id);
+
+            if (! $candidate) {
+                abort(422, 'Payment does not belong to this subscription.');
+            }
+            $payment = Payment::query()->lockForUpdate()->findOrFail($candidate->id);
+            if ((int) ($verified['amount'] ?? -1)
+                !== (int) round(((float) $payment->amount) * 100)
+                || strtoupper((string) ($verified['currency'] ?? ''))
+                !== strtoupper((string) $payment->currency)) {
+                abort(422, 'Verified payment amount or currency does not match.');
+            }
+            if ($payment->status === Payment::STATUS_PAID) {
+                if ($payment->transaction_id !== $providerId) {
+                    abort(422, 'Subscription already settled with another payment.');
+                }
+                return ['payment' => $payment, 'changed' => false];
+            }
+            $status = $verified['status'];
+            if (!in_array($status, [Payment::STATUS_PAID, Payment::STATUS_FAILED], true)) {
+                return ['payment' => $payment, 'changed' => false];
+            }
+            if (!$payment->canTransitionTo($status)) {
+                abort(422, 'Invalid subscription payment transition.');
+            }
+            $updates = ['status' => $status, 'transaction_id' => $providerId];
+            $this->handleSubscriptionPayment($payment, $status, $updates);
+            $payment->update($updates);
+            return ['payment' => $payment, 'changed' => true];
+        });
+
+        $payment = $result['payment'];
+        if ($result['changed']) {
+            $this->sendStatusNotificationSafely($payment->fresh(), $payment->status);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'payment_id' => $payment->id,
+                'status' => $payment->fresh()->status,
+                'subscription_id' => $subscriptionModel->id,
+            ],
+        ]);
+    }
+
     public function handle(
         Request $request,
         string $provider,
