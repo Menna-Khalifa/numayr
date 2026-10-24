@@ -67,6 +67,64 @@ class SubscriptionFlowTest extends TestCase
         $this->assertEquals($startsAt, $subscription->fresh()->starts_at);
     }
 
+    public function test_pending_moyasar_subscription_requires_safe_intent_cancellation(): void
+    {
+        Config::set('services.moyasar.secret_key', 'sk_test_stub');
+        Config::set('services.moyasar.mode', 'test');
+        $user = User::factory()->create();
+        [$address, $cooler] = $this->createLocationWithCooler($user);
+        $plan = SubscriptionPlan::query()->where('code', 'peace_of_mind')->firstOrFail();
+        $subscription = $this->createSubscription($user, $address, $plan, Subscription::STATUS_PENDING);
+        $subscription->coolers()->attach($cooler->id);
+        Payment::create([
+            'subscription_id' => $subscription->id, 'provider' => 'moyasar',
+            'method' => 'card', 'status' => Payment::STATUS_PROCESSING,
+            'amount' => $plan->price, 'currency' => 'SAR',
+            'provider_reference' => 'intent-abandoned',
+        ]);
+        \Illuminate\Support\Facades\Http::fake(function ($request) {
+            if ($request->method() === 'POST') {
+                return \Illuminate\Support\Facades\Http::response([
+                    'id' => 'intent-abandoned', 'status' => 'canceled',
+                ], 200);
+            }
+            return \Illuminate\Support\Facades\Http::response([
+                'id' => 'intent-abandoned', 'status' => 'created',
+                'expires_at' => now()->addMinutes(30)->toIso8601String(),
+            ], 200);
+        });
+        Sanctum::actingAs($user);
+        $this->postJson("/api/v1/subscriptions/{$subscription->id}/cancel")
+            ->assertOk();
+        $this->assertSame(Subscription::STATUS_CANCELLED, $subscription->fresh()->status);
+    }
+
+    public function test_pending_subscription_cannot_cancel_a_fulfilled_moyasar_intent(): void
+    {
+        Config::set('services.moyasar.secret_key', 'sk_test_stub');
+        $user = User::factory()->create();
+        [$address, $cooler] = $this->createLocationWithCooler($user);
+        $plan = SubscriptionPlan::query()->where('code', 'peace_of_mind')->firstOrFail();
+        $subscription = $this->createSubscription($user, $address, $plan, Subscription::STATUS_PENDING);
+        $subscription->coolers()->attach($cooler->id);
+        Payment::create([
+            'subscription_id' => $subscription->id, 'provider' => 'moyasar',
+            'method' => 'card', 'status' => Payment::STATUS_PROCESSING,
+            'amount' => $plan->price, 'currency' => 'SAR',
+            'provider_reference' => 'intent-used',
+        ]);
+        \Illuminate\Support\Facades\Http::fake([
+            'api.moyasar.com/*' => \Illuminate\Support\Facades\Http::response([
+                'id' => 'intent-used', 'status' => 'fulfilled',
+                'expires_at' => now()->addMinutes(30)->toIso8601String(),
+            ], 200),
+        ]);
+        Sanctum::actingAs($user);
+        $this->postJson("/api/v1/subscriptions/{$subscription->id}/cancel")
+            ->assertUnprocessable();
+        $this->assertSame(Subscription::STATUS_PENDING, $subscription->fresh()->status);
+    }
+
     public function test_customer_can_create_subscription_with_payment(): void
     {
         $user = User::factory()->create();
