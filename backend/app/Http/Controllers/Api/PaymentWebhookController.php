@@ -84,12 +84,28 @@ class PaymentWebhookController extends Controller
                 return $paymentModel;
             }
 
-            if ($providerResult['status'] !== Payment::STATUS_PAID) {
+            $verifiedStatus = $providerResult['status'];
+            if (! in_array($verifiedStatus, [
+                Payment::STATUS_PAID,
+                Payment::STATUS_FAILED,
+            ], true)) {
                 return $paymentModel;
             }
 
-            if (! $paymentModel->canTransitionTo(Payment::STATUS_PAID)) {
+            if (! $paymentModel->canTransitionTo($verifiedStatus)) {
                 abort(422, 'Invalid payment transition.');
+            }
+
+            if ($verifiedStatus === Payment::STATUS_FAILED) {
+                $paymentModel->update([
+                    'status' => Payment::STATUS_FAILED,
+                    'transaction_id' => $providerPaymentId,
+                    'failed_at' => now(),
+                ]);
+                $this->syncOrderPaymentStatus(
+                    Order::query()->lockForUpdate()->findOrFail($orderModel->id)
+                );
+                return $paymentModel;
             }
 
             // The provider intent reference stays in provider_reference;
