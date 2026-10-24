@@ -11,6 +11,7 @@ use App\Models\Payment;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
 use App\Services\Payments\PaymentGatewayManager;
+use App\Services\Payments\Gateways\MoyasarGateway;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -413,6 +414,28 @@ if ($unapprovedCoolers->isNotEmpty()) {
         Request $request,
         int $subscription
     ): JsonResponse {
+        $owned = Subscription::query()
+            ->where('user_id', $request->user()->id)
+            ->findOrFail($subscription);
+
+        if ($owned->status === Subscription::STATUS_PENDING) {
+            $pendingMoyasarPayment = $owned->payments()
+                ->where('provider', 'moyasar')
+                ->whereIn('status', [
+                    Payment::STATUS_PENDING,
+                    Payment::STATUS_PROCESSING,
+                ])->latest()->first();
+            if ($pendingMoyasarPayment) {
+                $reference = $pendingMoyasarPayment->provider_reference;
+                if (!is_string($reference) || $reference === ''
+                    || !app(MoyasarGateway::class)->cancelUnusedIntent($reference)) {
+                    throw ValidationException::withMessages([
+                        'subscription' => ['لا يمكن إلغاء الدفع قيد المعالجة قبل تأكيد نتيجته من ميسر'],
+                    ]);
+                }
+            }
+        }
+
         $subscriptionModel = DB::transaction(function () use (
             $request,
             $subscription
