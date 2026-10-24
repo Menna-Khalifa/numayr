@@ -664,6 +664,7 @@ function PlanSelectionModal({
     []
   );
 
+  const router = useRouter();
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
 
@@ -717,6 +718,7 @@ function PlanSelectionModal({
 
     setSaved(true);
     setError("");
+    router.push("/subscriptions/checkout");
   }
 
   return (
@@ -1005,12 +1007,11 @@ function PlanSelectionModal({
 
                 <div>
                   <p className="text-xs font-extrabold text-[#0d2b4e]">
-                    خطوة الدفع مؤجلة حاليًا
+                    إتمام الاشتراك عبر بوابة الدفع
                   </p>
 
                   <p className="mt-1 text-[10px] font-bold leading-5 text-[#8195a2]">
-                    سنحفظ اختيارك فقط. إنشاء الاشتراك
-                    ومحاولة الدفع سيتمان عند ربط بوابة الدفع.
+                    بعد تأكيد اختيارك ستنتقل إلى نموذج الدفع الآمن. لن يتفعّل الاشتراك قبل تأكيد الدفع لدى ميسر.
                   </p>
                 </div>
               </div>
@@ -1021,7 +1022,7 @@ function PlanSelectionModal({
               onClick={saveSelection}
               className="mt-5 flex h-[54px] w-full items-center justify-center gap-2 rounded-[16px] bg-[#0d2b4e] text-xs font-extrabold text-white"
             >
-              حفظ الاختيار للمتابعة لاحقًا
+              المتابعة إلى الدفع الآمن
               <ChevronLeft className="h-4 w-4" />
             </button>
           </div>
