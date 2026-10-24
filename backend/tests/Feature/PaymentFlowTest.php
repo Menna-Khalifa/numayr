@@ -635,10 +635,22 @@ class PaymentFlowTest extends TestCase
             'payment_status' => Payment::STATUS_PAID,
         ]);
         $this->assertDatabaseCount('invoices', 1);
+        $paidNotifications = Notification::query()
+            ->where('user_id', $user->id)
+            ->where('type', 'payment')
+            ->where('data->payment_id', $payment->id)
+            ->where('data->status', Payment::STATUS_PAID)
+            ->count();
         $this->postJson($path, $data)
             ->assertOk()
             ->assertJsonPath('data.status', Payment::STATUS_PAID);
         $this->assertDatabaseCount('invoices', 1);
+        $this->assertSame($paidNotifications, Notification::query()
+            ->where('user_id', $user->id)
+            ->where('type', 'payment')
+            ->where('data->payment_id', $payment->id)
+            ->where('data->status', Payment::STATUS_PAID)
+            ->count());
     }
 
     public function test_moyasar_return_rejects_mismatched_amount(): void
