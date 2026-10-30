@@ -22,6 +22,8 @@ import { useEffect, useMemo, useState } from "react";
 
 type NotificationData = {
   order_id?: number;
+  cooler_id?: number;
+  customer_id?: number;
   order_number?: string;
   payment_id?: number;
   subscription_id?: number;
@@ -366,6 +368,16 @@ export default function NotificationsPage() {
       return;
     }
 
+    if (data.cooler_id) {
+      router.push(`/coolers/${data.cooler_id}`);
+      return;
+    }
+
+    if (notification.type === "customer_registration") {
+      router.push("/admin/customers");
+      return;
+    }
+
     if (
       notification.type ===
         "subscription" ||
@@ -380,7 +392,11 @@ export default function NotificationsPage() {
       "payment"
     ) {
       router.push("/orders");
+      return;
     }
+
+    // Never leave a clickable notification without a destination.
+    router.push("/coolers");
   }
 
   if (loading) {
