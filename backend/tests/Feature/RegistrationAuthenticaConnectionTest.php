@@ -40,6 +40,7 @@ class RegistrationAuthenticaConnectionTest extends TestCase
         try {
             $this->postJson('/api/v1/auth/register', [
                 'name' => 'Test Customer',
+                'email' => 'authentica-connection@example.test',
                 'phone' => $phone,
                 'password' => 'TestPass123!',
                 'password_confirmation' => 'TestPass123!',
