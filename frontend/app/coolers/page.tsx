@@ -528,6 +528,8 @@ function AddCoolerModal({
   const [step, setStep] = useState(1);
   const [name, setName] = useState("");
   const [landmark, setLandmark] = useState("");
+  const [addressId, setAddressId] = useState("");
+  const [addresses, setAddresses] = useState<Address[]>([]);
   const [filterType, setFilterType] = useState("");
   const [waterSource, setWaterSource] = useState<"network" | "tanker" | "">("");
   const [tankCapacity, setTankCapacity] = useState("");
@@ -549,6 +551,14 @@ function AddCoolerModal({
 
     return () => URL.revokeObjectURL(url);
   }, [photo]);
+
+  useEffect(() => {
+    const token = getAuthToken();
+    if (!token) return;
+    void apiRequest<{data:{addresses:Address[]}}>("/addresses", {token})
+      .then((result) => setAddresses(result.data.addresses || []))
+      .catch(() => setAddresses([]));
+  }, []);
 
   function pickPhoto(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0] || null;
@@ -614,6 +624,7 @@ function AddCoolerModal({
     try {
       const formData = new FormData();
       formData.append("name", name.trim());
+      if (addressId) formData.append("address_id", addressId);
 
       if (landmark.trim()) formData.append("landmark", landmark.trim());
       if (filterType.trim()) formData.append("filter_type", filterType.trim());
@@ -719,6 +730,7 @@ function AddCoolerModal({
               <div className="space-y-5">
                 <StepTitle icon={<MapPin className="h-5 w-5" />} title="موقع البرادة" description="اكتب وصف عنوان البرادة بوضوح. ربط اختيار العنوان عبر هدهد يحتاج تفعيل واجهة الخدمة." />
                 <InputField label="عنوان البرادة أو المعلم القريب" value={landmark} onChange={setLandmark} placeholder="المدينة، الحي، الشارع، أقرب معلم" />
+                 <div><label className="mb-2 block text-xs font-extrabold text-[#0d2b4e]">ربط البرادة بعنوان محفوظ</label><select value={addressId} onChange={(event) => setAddressId(event.target.value)} className="h-[54px] w-full rounded-[16px] border border-[#dce8ec] bg-white px-4 text-sm"><option value="">بدون عنوان محفوظ</option>{addresses.map((address) => <option key={address.id} value={String(address.id)}>{address.label || `عنوان ${address.id}`} — {address.city || address.district || ""}</option>)}</select><p className="mt-2 text-xs text-[#718592]">اربط البرادة بعنوان محفوظ حتى تظهر في الاشتراكات الخاصة بالموقع نفسه. تقدر تضيف عنوانًا من حسابي.</p></div>
               </div>
             ) : null}
 
