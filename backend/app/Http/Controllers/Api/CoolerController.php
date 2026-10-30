@@ -69,6 +69,17 @@ class CoolerController extends Controller
                 'string',
                 'max:255',
             ],
+            'water_source' => [
+                'nullable',
+                \Illuminate\Validation\Rule::in(['network', 'tanker']),
+            ],
+            'tank_capacity_liters' => [
+                'nullable',
+                'required_if:water_source,tanker',
+                'integer',
+                'min:1',
+                'max:10000000',
+            ],
             'filter_installed_at' => [
                 'nullable',
                 'date',
@@ -79,6 +90,10 @@ class CoolerController extends Controller
                 'max:5000',
             ],
         ]);
+
+        $validated['tank_capacity_liters'] = ($validated['water_source'] ?? null) === 'tanker'
+            ? ($validated['tank_capacity_liters'] ?? null)
+            : null;
 
         $user = $request->user();
 
@@ -235,6 +250,19 @@ class CoolerController extends Controller
                 'string',
                 'max:255',
             ],
+            'water_source' => [
+                'sometimes',
+                'nullable',
+                \Illuminate\Validation\Rule::in(['network', 'tanker']),
+            ],
+            'tank_capacity_liters' => [
+                'sometimes',
+                'nullable',
+                'required_if:water_source,tanker',
+                'integer',
+                'min:1',
+                'max:10000000',
+            ],
             'filter_installed_at' => [
                 'sometimes',
                 'nullable',
@@ -287,6 +315,12 @@ class CoolerController extends Controller
                 'coolers/'.$request->user()->id,
                 'public'
             );
+        }
+
+        if (array_key_exists('water_source', $validated)) {
+            $validated['tank_capacity_liters'] = $validated['water_source'] === 'tanker'
+                ? ($validated['tank_capacity_liters'] ?? null)
+                : null;
         }
 
         $coolerModel->update($validated);
