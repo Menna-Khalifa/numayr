@@ -27,6 +27,7 @@ type Cooler = {
   latitude?: string | number | null;
   longitude?: string | number | null;
   filter_type?: string | null;
+  filter_installed_at?: string | null;
   water_source?: "network" | "tanker" | null;
   tank_capacity_liters?: number | null;
   address_id?: number | null;
@@ -231,9 +232,11 @@ export default function AdminCoolerDetailPage() {
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             {[
               ["نوع الفلتر", cooler.filter_type || "غير محدد"],
+               ["تاريخ تركيب الفلتر", cooler.filter_installed_at ? new Intl.DateTimeFormat("ar-SA", {timeZone:"Asia/Riyadh",year:"numeric",month:"long",day:"numeric"}).format(new Date(cooler.filter_installed_at)) : "غير محدد"],
+               ["أقرب معلم", cooler.landmark || "غير محدد"],
                ["مصدر التعبئة", cooler.water_source === "network" ? "شبكة مياه" : cooler.water_source === "tanker" ? "صهريج" : "غير محدد"],
                ...(cooler.water_source === "tanker" ? [["سعة الخزان (لتر)", cooler.tank_capacity_liters != null ? String(cooler.tank_capacity_liters) : "غير محدد"]] : []),
-               ["العنوان المرتبط", cooler.address?.label || "غير مرتبط بعنوان"],
+               ["العنوان المرتبط", cooler.address ? [cooler.address.label, cooler.address.city, cooler.address.district, cooler.address.street].filter(Boolean).join("، ") || "غير محدد" : "غير مرتبط بعنوان"],
               ["التقييم الفني", cooler.health_score !== null && cooler.health_score !== undefined ? `${cooler.health_score}%` : "بانتظار التقييم"],
               ["الحالة التشغيلية", cooler.is_active ? "نشطة" : "موقوفة"],
               ["الحالة الداخلية", cooler.status || "unknown"],
