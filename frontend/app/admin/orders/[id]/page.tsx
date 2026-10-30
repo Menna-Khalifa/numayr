@@ -1,6 +1,6 @@
 "use client";
 
-import { ApiError, apiRequest } from "@/lib/api";
+import { API_URL, ApiError, apiRequest } from "@/lib/api";
 import { getAuthToken } from "@/lib/auth";
 import { motion } from "framer-motion";
 import {
@@ -51,6 +51,7 @@ type Order = {
   preferred_time_slot?: string | null;
   notes?: string | null;
   service_data?: Record<string, unknown> | null;
+  attachments?: Array<{id:number;original_name?:string|null;mime_type?:string|null;size?:number|null}>;
   created_at?: string | null;
   completed_at?: string | null;
   cancelled_at?: string | null;
@@ -174,6 +175,26 @@ export default function AdminOrderDetailPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [openingAttachment, setOpeningAttachment] = useState<number | null>(null);
+
+  async function openAttachment(id: number) {
+    const token = getAuthToken();
+    if (!token) { setError("يجب تسجيل الدخول لفتح الصورة"); return; }
+    setOpeningAttachment(id);
+    try {
+      const response = await fetch(`${API_URL}/admin/order-attachments/${id}`, {headers:{Authorization:`Bearer ${token}`,Accept:"image/*"}});
+      if (!response.ok) throw new Error("تعذر فتح الصورة");
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.target = "_blank";
+      anchor.rel = "noopener noreferrer";
+      anchor.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch { setError("تعذر عرض مرفق الصيانة. تأكد من صلاحيات الوصول."); }
+    finally { setOpeningAttachment(null); }
+  }
 
   const loadOrder = useCallback(async () => {
     const token = getAuthToken();
@@ -520,6 +541,9 @@ export default function AdminOrderDetailPage() {
               </div>
             ) : null}
             {order.unit_price != null && order.quantity != null ? <p className="mt-3 text-xs font-bold text-[#38536a]">سعر الوحدة: {money(order.unit_price, order.currency)} × {order.quantity} {order.unit || ""}</p> : null}
+            {order.attachments?.length ? (
+              <div className="mt-4 rounded-[16px] border border-[#e3edef] bg-white p-4"><p className="text-xs font-extrabold text-[#0d2b4e]">صور ومرفقات العطل ({order.attachments.length})</p><div className="mt-3 flex flex-wrap gap-2">{order.attachments.map((attachment) => <button key={attachment.id} type="button" disabled={openingAttachment === attachment.id} onClick={() => void openAttachment(attachment.id)} className="rounded-xl border border-[#dce9ed] px-3 py-2 text-xs text-[#0d2b4e] disabled:opacity-50">{openingAttachment === attachment.id ? "جاري الفتح..." : attachment.original_name || `مرفق ${attachment.id}`}</button>)}</div></div>
+            ) : null}
             {order.notes ? (
               <div className="mt-4 rounded-[16px] border border-[#e3edef] bg-white p-4">
                 <p className="text-[9px] font-bold text-[#97a7b1]">ملاحظات العميل</p>
