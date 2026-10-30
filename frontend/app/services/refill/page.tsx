@@ -3,6 +3,7 @@
 
 
 import AppShell from "@/components/app/AppShell";
+import ServiceLoadError from "@/components/app/ServiceLoadError";
 
 import { ApiError, apiRequest } from "@/lib/api";
 
@@ -733,46 +734,12 @@ export default function RefillPage() {
 
 
   if (!service || !cooler) {
-
     return (
-
       <AppShell>
-
-        <div className="mx-auto max-w-[800px]">
-
-          <div className="rounded-[28px] bg-white p-8 text-center shadow-sm">
-
-            <p className="font-extrabold text-[#0d2b4e]">
-
-              تعذر فتح خدمة التعبئة
-
-            </p>
-
-
-
-            <Link
-
-              href="/coolers"
-
-              className="mt-5 inline-flex rounded-xl bg-[#0d2b4e] px-5 py-3 text-xs font-extrabold text-white"
-
-           >
-
-              العودة إلى براداتي
-
-            </Link>
-
-          </div>
-
-        </div>
-
+        <ServiceLoadError serviceName="التعبئة" message={error || undefined} />
       </AppShell>
-
     );
-
   }
-
-
 
   const presets =
 
