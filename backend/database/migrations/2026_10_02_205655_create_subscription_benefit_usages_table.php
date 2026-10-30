@@ -51,12 +51,12 @@ return new class extends Migration
                 'subscription_id',
                 'benefit_code',
                 'status',
-            ]);
+            ], 'sbu_subscription_benefit_status_idx');
 
             $table->index([
                 'order_id',
                 'benefit_code',
-            ]);
+            ], 'sbu_order_benefit_idx');
         });
     }
 
