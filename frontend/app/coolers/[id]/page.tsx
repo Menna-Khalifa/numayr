@@ -53,6 +53,7 @@ type Cooler = {
   health_score: number | null;
   is_active: boolean;
   address?: Address | null;
+  address_id?: number | null;
 };
 
 type CoolerResponse = {
@@ -643,6 +644,9 @@ function EditCoolerModal({
 }) {
   const [name, setName] = useState(cooler.name);
   const [landmark, setLandmark] = useState(cooler.landmark || "");
+  const [addressId, setAddressId] = useState(cooler.address_id ? String(cooler.address_id) : cooler.address?.id ? String(cooler.address.id) : "");
+  const [addresses, setAddresses] = useState<Address[]>([]);
+  const [addressLoadError, setAddressLoadError] = useState(false);
   const [filterType, setFilterType] = useState(cooler.filter_type || "");
   const [waterSource, setWaterSource] = useState(cooler.water_source || "");
   const [tankCapacity, setTankCapacity] = useState(cooler.tank_capacity_liters != null ? String(cooler.tank_capacity_liters) : "");
@@ -668,6 +672,14 @@ function EditCoolerModal({
 
     return () => URL.revokeObjectURL(url);
   }, [cooler, photo]);
+
+  useEffect(() => {
+    const token = getAuthToken();
+    if (!token) return;
+    void apiRequest<{data:{addresses:Address[]}}>("/addresses", {token})
+      .then((response) => setAddresses(response.data.addresses || []))
+      .catch(() => setAddressLoadError(true));
+  }, []);
 
   function handlePhoto(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0] || null;
@@ -706,6 +718,7 @@ function EditCoolerModal({
       const formData = new FormData();
       formData.append("_method", "PUT");
       formData.append("name", name.trim());
+      formData.append("address_id", addressId);
 
       if (landmark.trim()) formData.append("landmark", landmark.trim());
       if (filterType.trim()) formData.append("filter_type", filterType.trim());
@@ -788,6 +801,7 @@ function EditCoolerModal({
           <div className="space-y-4">
             <Field label="اسم البرادة" value={name} onChange={setName} />
             <Field label="أقرب معلم" value={landmark} onChange={setLandmark} />
+             <div><label className="mb-2 block text-xs font-extrabold text-[#0d2b4e]">ربط البرادة بعنوان محفوظ</label><select value={addressId} onChange={(event) => setAddressId(event.target.value)} className="h-[52px] w-full rounded-[15px] border border-[#dce8ec] bg-white px-4 text-sm"><option value="">غير مرتبط بعنوان</option>{addresses.map((a) => <option key={a.id} value={String(a.id)}>{a.label || a.address_line || `عنوان ${a.id}`}</option>)}</select>{addressLoadError ? <p className="mt-1 text-xs text-red-600">تعذر تحميل العناوين. حاول إعادة فتح نافذة التعديل.</p> : null}</div>
             <Field label="نوع الفلتر" value={filterType} onChange={setFilterType} />
              <div><label className="mb-2 block text-xs font-extrabold text-[#0d2b4e]">مصدر التعبئة</label><select value={waterSource} onChange={(event) => setWaterSource(event.target.value as typeof waterSource)} className="h-[52px] w-full rounded-[15px] border border-[#dce8ec] bg-white px-4 text-sm"><option value="">غير محدد</option><option value="network">شبكة مياه</option><option value="tanker">صهريج</option></select></div>
              {waterSource === "tanker" ? <div><label className="mb-2 block text-xs font-extrabold text-[#0d2b4e]">سعة الخزان (لتر)</label><input type="number" min="1" max="10000000" value={tankCapacity} onChange={(event) => setTankCapacity(event.target.value)} className="h-[52px] w-full rounded-[15px] border border-[#dce8ec] px-4 text-sm" required /></div> : null}
