@@ -61,6 +61,8 @@ import {
 
   useMemo,
 
+  useRef,
+
   useState,
 
 } from "react";
@@ -348,6 +350,7 @@ export default function MaintenancePage() {
   const [loading, setLoading] = useState(true);
 
   const [submitting, setSubmitting] = useState(false);
+  const submittingLock = useRef(false);
 
   const [error, setError] = useState("");
 
@@ -730,8 +733,7 @@ export default function MaintenancePage() {
   ) {
 
     event.preventDefault();
-
-
+    if (submittingLock.current || successOrder) return;
 
     const token = getAuthToken();
 
@@ -805,6 +807,7 @@ export default function MaintenancePage() {
 
     setError("");
 
+    submittingLock.current = true;
     setSubmitting(true);
 
 
@@ -1031,6 +1034,7 @@ export default function MaintenancePage() {
 
     } finally {
 
+      submittingLock.current = false;
       setSubmitting(false);
 
     }
