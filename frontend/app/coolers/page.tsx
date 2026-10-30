@@ -45,6 +45,8 @@ type Cooler = {
   longitude?: string | number | null;
   landmark?: string | null;
   filter_type?: string | null;
+  water_source?: "network" | "tanker" | null;
+  tank_capacity_liters?: number | null;
   filter_installed_at?: string | null;
   status?: string | null;
   approval_status?: string | null;
@@ -527,6 +529,8 @@ function AddCoolerModal({
   const [name, setName] = useState("");
   const [landmark, setLandmark] = useState("");
   const [filterType, setFilterType] = useState("");
+  const [waterSource, setWaterSource] = useState<"network" | "tanker" | "">("");
+  const [tankCapacity, setTankCapacity] = useState("");
   const [filterInstalledAt, setFilterInstalledAt] = useState("");
   const [notes, setNotes] = useState("");
   const [photo, setPhoto] = useState<File | null>(null);
@@ -595,6 +599,11 @@ function AddCoolerModal({
       return;
     }
 
+    if (waterSource === "tanker" && (!Number.isInteger(Number(tankCapacity)) || Number(tankCapacity) <= 0)) {
+      setError("أدخل سعة الخزان باللتر برقم صحيح أكبر من صفر");
+      return;
+    }
+
     setSaving(true);
     setError("");
 
@@ -604,6 +613,8 @@ function AddCoolerModal({
 
       if (landmark.trim()) formData.append("landmark", landmark.trim());
       if (filterType.trim()) formData.append("filter_type", filterType.trim());
+      if (waterSource) formData.append("water_source", waterSource);
+      if (waterSource === "tanker") formData.append("tank_capacity_liters", tankCapacity);
       if (filterInstalledAt) formData.append("filter_installed_at", filterInstalledAt);
       if (notes.trim()) formData.append("notes", notes.trim());
       if (photo) formData.append("photo", photo);
@@ -741,6 +752,44 @@ function AddCoolerModal({
                 ) : null}
 
                 <InputField label="نوع الفلتر" value={filterType} onChange={setFilterType} placeholder="مثال: 5 مراحل" />
+
+                <div>
+                  <label htmlFor="water-source" className="mb-2 block text-[12px] font-extrabold text-[#0d2b4e]">مصدر التعبئة</label>
+                  <select
+                    id="water-source"
+                    value={waterSource}
+                    onChange={(event) => {
+                      const source = event.target.value as "network" | "tanker" | "";
+                      setWaterSource(source);
+                      if (source !== "tanker") setTankCapacity("");
+                    }}
+                    className="h-[54px] w-full rounded-[16px] border border-[#dce8ec] bg-white px-4 text-sm font-bold text-[#0d2b4e] outline-none focus:border-[#16a6c9]"
+                  >
+                    <option value="">اختر مصدر التعبئة</option>
+                    <option value="network">شبكة مياه</option>
+                    <option value="tanker">صهريج</option>
+                  </select>
+                </div>
+
+                {waterSource === "tanker" ? (
+                  <div>
+                    <label htmlFor="tank-capacity" className="mb-2 block text-[12px] font-extrabold text-[#0d2b4e]">
+                      سعة الخزان (لتر) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      id="tank-capacity"
+                      type="number"
+                      min={1}
+                      max={10000000}
+                      step={1}
+                      required
+                      value={tankCapacity}
+                      onChange={(event) => setTankCapacity(event.target.value)}
+                      placeholder="مثال: 1000"
+                      className="h-[54px] w-full rounded-[16px] border border-[#dce8ec] bg-white px-4 text-sm font-bold text-[#0d2b4e] outline-none focus:border-[#16a6c9]"
+                    />
+                  </div>
+                ) : null}
 
                 <div>
                   <label className="mb-2 block text-[12px] font-extrabold text-[#0d2b4e]">تاريخ تركيب الفلتر</label>
