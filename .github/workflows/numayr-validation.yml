@@ -52,6 +52,8 @@ jobs:
           extensions: mbstring, pdo_mysql, gd, zip, intl, bcmath
           coverage: none
       - run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Prepare disposable Laravel test environment
+        run: cp .env.example .env
       - name: Validate migrations and backend tests with disposable MySQL
         env:
           APP_ENV: testing
