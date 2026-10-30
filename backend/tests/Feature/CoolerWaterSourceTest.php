@@ -79,4 +79,35 @@ class CoolerWaterSourceTest extends TestCase
             'tank_capacity_liters' => 1200,
         ]);
     }
+    public function test_customer_sees_admin_approval_from_the_same_database_record(): void
+    {
+        $customer = $this->customer();
+        $admin = User::create([
+            'name' => 'Admin Reviewer',
+            'email' => 'reviewer@example.test',
+            'role' => 'admin',
+            'is_active' => true,
+            'password' => 'not-a-real-password',
+        ]);
+
+        $created = $this->actingAs($customer)
+            ->postJson('/api/v1/coolers', [
+                'name' => 'Reviewable cooler',
+                'water_source' => 'network',
+            ])->assertCreated();
+        $id = $created->json('data.cooler.id');
+
+        $this->actingAs($admin)
+            ->patchJson("/api/v1/admin/coolers/{$id}/review", [
+                'approval_status' => 'approved',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.cooler.approval_status', 'approved');
+
+        $this->actingAs($customer)
+            ->getJson("/api/v1/coolers/{$id}")
+            ->assertOk()
+            ->assertJsonPath('data.cooler.approval_status', 'approved');
+    }
+
 }
