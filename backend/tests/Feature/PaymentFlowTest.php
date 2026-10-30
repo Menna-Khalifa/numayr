@@ -591,16 +591,6 @@ class PaymentFlowTest extends TestCase
     public function test_moyasar_return_confirms_owned_paid_payment_and_issues_invoice_once(): void
     {
         Config::set('services.moyasar.secret_key', 'sk_test_stub');
-        \Illuminate\Support\Facades\Http::fake([
-            'api.moyasar.com/*' => \Illuminate\Support\Facades\Http::response([
-                'id' => '11111111-1111-4111-8111-111111111111',
-                'status' => 'paid',
-                'description' => 'NUMAYR Payment #1',
-                'amount' => 11500,
-                'currency' => 'SAR',
-            ], 200),
-        ]);
-
         $user = User::factory()->create();
         $order = $this->createOrder($user);
         $payment = Payment::create([
