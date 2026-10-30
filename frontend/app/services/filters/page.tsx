@@ -969,12 +969,10 @@ function SuccessModal({
           </div>
         </div>
 
-        <Link
-          href={`/coolers/${coolerId}`}
-          className="mt-6 flex h-[50px] w-full items-center justify-center rounded-[15px] bg-[#0d2b4e] text-xs font-extrabold text-white"
-        >
-          العودة إلى البرادة
-        </Link>
+        <div className="mt-6 grid grid-cols-2 gap-3">
+          <Link href={`/coolers/${coolerId}`} className="flex h-[50px] items-center justify-center rounded-[15px] border border-[#dce8ec] text-xs font-extrabold text-[#0d2b4e]">العودة للبرادة</Link>
+          <Link href={`/orders/${order.id}`} className="flex h-[50px] items-center justify-center rounded-[15px] bg-[#0d2b4e] text-xs font-extrabold text-white">تفاصيل الطلب</Link>
+        </div>
       </motion.div>
     </>
   );
