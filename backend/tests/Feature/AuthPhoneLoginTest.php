@@ -85,30 +85,17 @@ class AuthPhoneLoginTest extends TestCase
             'role' => 'customer',
         ]);
     }
-    public function test_customer_can_register_without_email(): void
+    public function test_registration_requires_email_as_well_as_mobile(): void
     {
-        $response = $this->postJson('/api/v1/auth/register', [
+        $this->postJson('/api/v1/auth/register', [
             'name' => 'Phone Only Customer',
             'phone' => '0553334455',
             'password' => 'TestPass123!',
             'password_confirmation' => 'TestPass123!',
-            'role' => 'admin',
-        ]);
+        ])->assertUnprocessable()
+          ->assertJsonValidationErrors('email');
 
-        $response->assertCreated()
-            ->assertJsonPath('data.requires_phone_verification', true)
-            ->assertJsonMissingPath('data.token');
-
-        $this->assertDatabaseHas('users', [
-            'phone' => '0553334455',
-            'email' => null,
-            'role' => 'customer',
-            'is_active' => false,
-        ]);
-
-        $user = \App\Models\User::where('phone', '0553334455')->firstOrFail();
-
-        $this->assertEquals(0, $user->tokens()->count());
+        $this->assertDatabaseCount('users', 0);
     }
 
     public function test_duplicate_phone_registration_is_rejected(): void
@@ -120,6 +107,7 @@ class AuthPhoneLoginTest extends TestCase
 
         $this->postJson('/api/v1/auth/register', [
             'name' => 'Duplicate Phone',
+            'email' => 'duplicate-phone@example.test',
             'phone' => '0554445566',
             'password' => 'TestPass123!',
             'password_confirmation' => 'TestPass123!',
@@ -135,6 +123,7 @@ class AuthPhoneLoginTest extends TestCase
 
         $this->postJson('/api/v1/auth/register', [
             'name' => 'Duplicate Saudi Phone',
+            'email' => 'duplicate-local@example.test',
             'phone' => '0551111222',
             'password' => 'TestPass123!',
             'password_confirmation' => 'TestPass123!',
@@ -153,6 +142,7 @@ class AuthPhoneLoginTest extends TestCase
 
         $this->postJson('/api/v1/auth/register', [
             'name' => 'Duplicate International Phone',
+            'email' => 'duplicate-international@example.test',
             'phone' => '966552222333',
             'password' => 'TestPass123!',
             'password_confirmation' => 'TestPass123!',
