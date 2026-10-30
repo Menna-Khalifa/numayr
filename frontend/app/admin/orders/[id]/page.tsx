@@ -512,7 +512,7 @@ export default function AdminOrderDetailPage() {
                 ["الخدمة", order.service_name || order.service_code || "—"],
                 ["الأولوية", order.priority === "urgent" ? "عاجل" : order.priority === "standard" ? "عادي" : order.priority || "عادي"],
                 ["الموعد المفضل", order.preferred_date ? new Intl.DateTimeFormat("ar-SA", { timeZone: "Asia/Riyadh", year: "numeric", month: "long", day: "numeric" }).format(new Date(order.preferred_date)) : "—"],
-                ["الفترة", ({ morning: "صباحًا", afternoon: "ظهرًا", evening: "مساءً" } as Record<string, string>)[order.preferred_time_slot || ""] || order.preferred_time_slot || "—"],
+                ["الفترة", ({ morning: "صباحًا", noon: "ظهرًا", afternoon: "ظهرًا", evening: "مساءً" } as Record<string, string>)[order.preferred_time_slot || ""] || order.preferred_time_slot || "—"],
                 [
                   "الكمية",
                   order.quantity
@@ -536,7 +536,7 @@ export default function AdminOrderDetailPage() {
               <div className="mt-4 rounded-[16px] border border-[#e3edef] bg-white p-4">
                 <p className="text-xs font-extrabold text-[#0d2b4e]">التفاصيل الإضافية التي أدخلها العميل</p>
                 <div className="mt-3 space-y-2">{Object.entries(order.service_data).filter(([, value]) => value !== null && value !== "").map(([key, value]) => (
-                  <div key={key} className="flex flex-wrap justify-between gap-2 text-xs"><span className="font-bold text-[#587183]">{({issue_type:"نوع المشكلة",description:"وصف المشكلة",filter_service:"خدمة الفلتر",filter_type:"نوع الفلتر",photos:"صور المشكلة",images:"المرفقات"} as Record<string,string>)[key] || key.replaceAll("_"," ")}</span><span className="max-w-full break-words text-[#0d2b4e]">{typeof value === "object" ? JSON.stringify(value) : String(value)}</span></div>
+                  <div key={key} className="flex flex-wrap justify-between gap-2 text-xs"><span className="font-bold text-[#587183]">{({issue_type:"نوع المشكلة",description:"وصف المشكلة",option_code:"خدمة الفلاتر المختارة",filter_service:"خدمة الفلتر",filter_type:"نوع الفلتر",photos:"صور المشكلة",images:"المرفقات"} as Record<string,string>)[key] || key.replaceAll("_"," ")}</span><span className="max-w-full break-words text-[#0d2b4e]">{key === "option_code" ? ({five_stage:"تغيير الفلاتر الخمسة",ro_membrane:"تغيير غشاء RO",sterilization_cleaning:"تعقيم وتنظيف",inspection_diagnosis:"فحص وتشخيص"} as Record<string,string>)[String(value)] || String(value) : typeof value === "object" ? JSON.stringify(value) : String(value)}</span></div>
                 ))}</div>
               </div>
             ) : null}
