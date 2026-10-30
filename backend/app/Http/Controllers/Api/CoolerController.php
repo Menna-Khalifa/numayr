@@ -70,7 +70,7 @@ class CoolerController extends Controller
                 'max:255',
             ],
             'water_source' => [
-                'nullable',
+                'required',
                 \Illuminate\Validation\Rule::in(['network', 'tanker']),
             ],
             'tank_capacity_liters' => [
