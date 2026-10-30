@@ -9,23 +9,25 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('invoices', function (Blueprint $table) {
-            $table->unique(
-                'payment_id',
-                'invoices_payment_id_unique'
-            );
-        });
+        if (!Schema::hasIndex('invoices', 'invoices_payment_id_unique')) {
+            Schema::table('invoices', function (Blueprint $table) {
+                $table->unique('payment_id', 'invoices_payment_id_unique');
+            });
+        }
 
-        Schema::table('payments', function (Blueprint $table) {
-            $table->dropIndex(
-                'payments_provider_provider_reference_index'
-            );
+        if (!Schema::hasIndex('payments', 'payments_provider_provider_reference_unique')) {
+            if (!Schema::hasIndex('payments', 'payments_provider_provider_reference_index')) {
+                throw new RuntimeException('Expected original payments provider index is missing');
+            }
 
-            $table->unique(
-                ['provider', 'provider_reference'],
-                'payments_provider_provider_reference_unique'
-            );
-        });
+            Schema::table('payments', function (Blueprint $table) {
+                $table->dropIndex('payments_provider_provider_reference_index');
+                $table->unique(
+                    ['provider', 'provider_reference'],
+                    'payments_provider_provider_reference_unique'
+                );
+            });
+        }
 
         $driver = DB::getDriverName();
 
