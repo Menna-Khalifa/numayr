@@ -1,6 +1,7 @@
 "use client";
 
 import AppShell from "@/components/app/AppShell";
+import ServiceLoadError from "@/components/app/ServiceLoadError";
 import { ApiError, apiRequest } from "@/lib/api";
 import { getAuthToken, removeAuthToken } from "@/lib/auth";
 import { AnimatePresence, motion } from "framer-motion";
@@ -362,13 +363,7 @@ export default function FiltersPage() {
   if (!service || !cooler) {
     return (
       <AppShell>
-        <div className="mx-auto max-w-[800px]">
-          <div className="rounded-[28px] bg-white p-8 text-center">
-            <p className="font-extrabold text-[#0d2b4e]">
-              تعذر فتح خدمة الفلاتر
-            </p>
-          </div>
-        </div>
+        <ServiceLoadError serviceName="الفلاتر" message={error || undefined} />
       </AppShell>
     );
   }
