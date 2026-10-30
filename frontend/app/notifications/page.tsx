@@ -369,7 +369,7 @@ export default function NotificationsPage() {
     }
 
     if (data.cooler_id) {
-      router.push(`/coolers/${data.cooler_id}`);
+      router.push(data.customer_id ? `/admin/coolers/${data.cooler_id}` : `/coolers/${data.cooler_id}`);
       return;
     }
 
