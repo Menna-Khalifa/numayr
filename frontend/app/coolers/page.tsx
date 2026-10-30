@@ -394,7 +394,7 @@ function CoolerGridCard({ cooler, index }: { cooler: Cooler; index: number }) {
         <div className="mt-4 grid grid-cols-2 gap-3">
           <InfoTile label="الفلتر" value={cooler.filter_type || "غير محدد"} icon={<Filter className="h-4 w-4" />} />
           <InfoTile
-            label="حالة التشغيل"
+            label="التقييم الفني"
             value={cooler.health_score !== null && cooler.health_score !== undefined ? `${cooler.health_score}%` : "بانتظار التقييم"}
             icon={<Sparkles className="h-4 w-4" />}
           />
