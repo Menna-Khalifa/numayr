@@ -38,7 +38,7 @@ return new class extends Migration
             );
 
             $table->index(['provider', 'event_id']);
-            $table->index(['provider_reference', 'processing_status']);
+            $table->index(['provider_reference', 'processing_status'], 'pwe_reference_status_idx');
         });
     }
 
