@@ -2205,7 +2205,7 @@ export default function MaintenancePage() {
 
               onClose={() =>
 
-                setSuccessOrder(null)
+                router.push(`/orders/${successOrder.id}`)
 
               }
 
