@@ -119,6 +119,7 @@ $order->load([
             'service',
             'address',
             'statusHistory',
+            'attachments',
             'payments',
             'invoices',
         ]);
