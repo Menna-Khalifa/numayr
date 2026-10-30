@@ -67,7 +67,30 @@ return new class extends Migration
             return;
         }
 
-        if (in_array($driver, ['mysql', 'pgsql'], true)) {
+        if ($driver === 'mysql') {
+            foreach (['INSERT', 'UPDATE'] as $event) {
+                $trigger = 'payments_target_xor_' . strtolower($event);
+                DB::statement("
+                    CREATE TRIGGER {$trigger}
+                    BEFORE {$event} ON payments
+                    FOR EACH ROW
+                    BEGIN
+                        IF (
+                            (NEW.order_id IS NULL AND NEW.subscription_id IS NULL)
+                            OR
+                            (NEW.order_id IS NOT NULL AND NEW.subscription_id IS NOT NULL)
+                        ) THEN
+                            SIGNAL SQLSTATE '45000'
+                            SET MESSAGE_TEXT = 'A payment must belong to exactly one target';
+                        END IF;
+                    END
+                ");
+            }
+
+            return;
+        }
+
+        if ($driver === 'pgsql') {
             DB::statement('
                 ALTER TABLE payments
                 ADD CONSTRAINT payments_target_xor_check
@@ -105,9 +128,8 @@ return new class extends Migration
                 'DROP TRIGGER IF EXISTS payments_target_xor_update'
             );
         } elseif ($driver === 'mysql') {
-            DB::statement(
-                'ALTER TABLE payments DROP CHECK payments_target_xor_check'
-            );
+            DB::statement('DROP TRIGGER IF EXISTS payments_target_xor_insert');
+            DB::statement('DROP TRIGGER IF EXISTS payments_target_xor_update');
         } elseif ($driver === 'pgsql') {
             DB::statement(
                 'ALTER TABLE payments DROP CONSTRAINT payments_target_xor_check'
