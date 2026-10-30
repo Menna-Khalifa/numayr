@@ -147,7 +147,8 @@ function money(value?: number | string | null, currency?: string | null) {
 function dateTime(value?: string | null) {
   if (!value) return "—";
 
-  return new Intl.DateTimeFormat("ar-EG-u-nu-latn", {
+  return new Intl.DateTimeFormat("ar-SA-u-ca-gregory-nu-latn", {
+    timeZone: "Asia/Riyadh",
     year: "numeric",
     month: "short",
     day: "numeric",
