@@ -68,6 +68,7 @@ jobs:
           QUEUE_CONNECTION: sync
           MAIL_MAILER: array
           SMS_DRIVER: log
+          PAYMENT_PROVIDER: fake
         run: |
           php artisan migrate:fresh --force
           php artisan test
