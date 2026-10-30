@@ -232,7 +232,7 @@ export default function AdminCoolerDetailPage() {
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             {[
               ["نوع الفلتر", cooler.filter_type || "غير محدد"],
-               ["تاريخ تركيب الفلتر", cooler.filter_installed_at ? new Intl.DateTimeFormat("ar-SA", {timeZone:"Asia/Riyadh",year:"numeric",month:"long",day:"numeric"}).format(new Date(cooler.filter_installed_at)) : "غير محدد"],
+               ["تاريخ تركيب الفلتر", cooler.filter_installed_at ? new Intl.DateTimeFormat("ar-SA-u-ca-gregory", {timeZone:"Asia/Riyadh",year:"numeric",month:"long",day:"numeric"}).format(new Date(cooler.filter_installed_at)) : "غير محدد"],
                ["أقرب معلم", cooler.landmark || "غير محدد"],
                ["مصدر التعبئة", cooler.water_source === "network" ? "شبكة مياه" : cooler.water_source === "tanker" ? "صهريج" : "غير محدد"],
                ...(cooler.water_source === "tanker" ? [["سعة الخزان (لتر)", cooler.tank_capacity_liters != null ? String(cooler.tank_capacity_liters) : "غير محدد"]] : []),
