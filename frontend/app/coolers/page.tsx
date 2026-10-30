@@ -127,10 +127,20 @@ export default function CoolersPage() {
       }
     }
 
+    // Refresh approval decisions when the customer returns to this tab.
+    // Admin reviews are persisted in the API; an already mounted customer
+    // page otherwise continues showing the previous pending status.
+    const refreshOnFocus = () => {
+      if (document.visibilityState === "visible") void load();
+    };
     void load();
+    window.addEventListener("focus", refreshOnFocus);
+    document.addEventListener("visibilitychange", refreshOnFocus);
 
     return () => {
       active = false;
+      window.removeEventListener("focus", refreshOnFocus);
+      document.removeEventListener("visibilitychange", refreshOnFocus);
     };
   }, []);
 
