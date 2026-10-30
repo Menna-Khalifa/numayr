@@ -215,6 +215,11 @@ export default function AccountPage() {
       return;
     }
 
+    if (!/^05[0-9]{8}$/.test(phone.trim())) {
+      setProfileError("رقم الجوال مطلوب بصيغة سعودية صحيحة: 05xxxxxxxx");
+      return;
+    }
+
     setProfileError("");
     setProfileMessage("");
     setSavingProfile(true);
