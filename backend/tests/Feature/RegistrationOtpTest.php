@@ -45,7 +45,7 @@ class RegistrationOtpTest extends TestCase
 
         $user = User::where('phone', $phone)->firstOrFail();
 
-        $this->assertNull($user->email);
+        $this->assertSame('registration-otp@example.test', $user->email);
         $this->assertEquals('customer', $user->role);
         $this->assertFalse($user->is_active);
         $this->assertEquals(0, $user->tokens()->count());
