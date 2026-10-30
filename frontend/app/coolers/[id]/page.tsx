@@ -146,7 +146,18 @@ export default function CoolerDetailsPage() {
       }
     }
 
+    const refreshOnReturn = () => {
+      if (document.visibilityState === "visible") void loadCooler();
+    };
+
     void loadCooler();
+    window.addEventListener("focus", refreshOnReturn);
+    document.addEventListener("visibilitychange", refreshOnReturn);
+
+    return () => {
+      window.removeEventListener("focus", refreshOnReturn);
+      document.removeEventListener("visibilitychange", refreshOnReturn);
+    };
   }, [params.id, router]);
 
   if (loading) {
