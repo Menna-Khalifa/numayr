@@ -45,6 +45,8 @@ type Cooler = {
   longitude: number | string | null;
   landmark: string | null;
   filter_type: string | null;
+  water_source?: "network" | "tanker" | null;
+  tank_capacity_liters?: number | null;
   filter_installed_at: string | null;
   notes: string | null;
   status: string | null;
@@ -300,7 +302,7 @@ export default function CoolerDetailsPage() {
         <section className="mt-7 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
           <StatCard
             icon={<Gauge className="h-5 w-5" />}
-            label="حالة البرادة"
+            label="التقييم الفني"
             value={
               cooler.health_score !== null
                 ? `${cooler.health_score}%`
@@ -426,6 +428,9 @@ export default function CoolerDetailsPage() {
                 label="نوع الفلتر"
                 value={cooler.filter_type || "غير محدد"}
               />
+              <DetailRow label="مصدر التعبئة" value={cooler.water_source === "network" ? "شبكة مياه" : cooler.water_source === "tanker" ? "صهريج" : "غير محدد"} />
+              {cooler.water_source === "tanker" ? <DetailRow label="سعة الخزان (لتر)" value={cooler.tank_capacity_liters != null ? String(cooler.tank_capacity_liters) : "غير محدد"} /> : null}
+              <DetailRow label="عنوان البراد" value={cooler.address?.label || cooler.address?.address_line || "غير مرتبط بعنوان محفوظ"} />
             </div>
           </div>
 
@@ -639,6 +644,8 @@ function EditCoolerModal({
   const [name, setName] = useState(cooler.name);
   const [landmark, setLandmark] = useState(cooler.landmark || "");
   const [filterType, setFilterType] = useState(cooler.filter_type || "");
+  const [waterSource, setWaterSource] = useState(cooler.water_source || "");
+  const [tankCapacity, setTankCapacity] = useState(cooler.tank_capacity_liters != null ? String(cooler.tank_capacity_liters) : "");
   const [filterInstalledAt, setFilterInstalledAt] = useState(
     cooler.filter_installed_at
       ? cooler.filter_installed_at.slice(0, 10)
@@ -782,6 +789,8 @@ function EditCoolerModal({
             <Field label="اسم البرادة" value={name} onChange={setName} />
             <Field label="أقرب معلم" value={landmark} onChange={setLandmark} />
             <Field label="نوع الفلتر" value={filterType} onChange={setFilterType} />
+             <div><label className="mb-2 block text-xs font-extrabold text-[#0d2b4e]">مصدر التعبئة</label><select value={waterSource} onChange={(event) => setWaterSource(event.target.value as typeof waterSource)} className="h-[52px] w-full rounded-[15px] border border-[#dce8ec] bg-white px-4 text-sm"><option value="">غير محدد</option><option value="network">شبكة مياه</option><option value="tanker">صهريج</option></select></div>
+             {waterSource === "tanker" ? <div><label className="mb-2 block text-xs font-extrabold text-[#0d2b4e]">سعة الخزان (لتر)</label><input type="number" min="1" max="10000000" value={tankCapacity} onChange={(event) => setTankCapacity(event.target.value)} className="h-[52px] w-full rounded-[15px] border border-[#dce8ec] px-4 text-sm" required /></div> : null}
 
             <div>
               <label className="mb-2 block text-xs font-extrabold text-[#0d2b4e]">
