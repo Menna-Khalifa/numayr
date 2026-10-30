@@ -110,4 +110,47 @@ class CoolerWaterSourceTest extends TestCase
             ->assertJsonPath('data.cooler.approval_status', 'approved');
     }
 
+    public function test_customer_can_link_and_update_own_cooler_address(): void
+    {
+        $customer = $this->customer();
+        $first = $customer->addresses()->create(['label' => 'First location', 'city' => 'Riyadh']);
+        $second = $customer->addresses()->create(['label' => 'Second location', 'city' => 'Riyadh']);
+
+        $created = $this->actingAs($customer)->postJson('/api/v1/coolers', [
+            'name' => 'Address-linked cooler',
+            'water_source' => 'network',
+            'address_id' => $first->id,
+        ])->assertCreated();
+
+        $coolerId = $created->json('data.cooler.id');
+        $this->assertDatabaseHas('coolers', ['id' => $coolerId, 'address_id' => $first->id]);
+
+        $this->actingAs($customer)->putJson("/api/v1/coolers/{$coolerId}", [
+            'address_id' => $second->id,
+        ])->assertOk();
+
+        $this->assertDatabaseHas('coolers', ['id' => $coolerId, 'address_id' => $second->id]);
+        $this->actingAs($customer)->getJson("/api/v1/coolers/{$coolerId}")
+            ->assertOk()->assertJsonPath('data.cooler.address.id', $second->id);
+    }
+
+    public function test_customer_cannot_link_another_customers_address(): void
+    {
+        $customer = $this->customer();
+        $other = User::create([
+            'name' => 'Another customer',
+            'email' => 'another-cooler-address@example.test',
+            'role' => 'customer',
+            'is_active' => true,
+            'password' => 'not-a-real-password',
+        ]);
+        $address = $other->addresses()->create(['label' => 'Private', 'city' => 'Jeddah']);
+
+        $this->actingAs($customer)->postJson('/api/v1/coolers', [
+            'name' => 'Should not be created',
+            'water_source' => 'network',
+            'address_id' => $address->id,
+        ])->assertStatus(422);
+    }
+
 }
