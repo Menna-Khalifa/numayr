@@ -32,6 +32,7 @@ class RegistrationOtpTest extends TestCase
 
         $registration = $this->postJson('/api/v1/auth/register', [
             'name' => 'Registration Test',
+            'email' => 'registration-otp@example.test',
             'phone' => $phone,
             'password' => 'TestPass123!',
             'password_confirmation' => 'TestPass123!',
@@ -92,6 +93,7 @@ class RegistrationOtpTest extends TestCase
 
         $this->postJson('/api/v1/auth/register', [
             'name' => 'Invalid OTP Test',
+            'email' => 'registration-invalid-otp@example.test',
             'phone' => $phone,
             'password' => 'TestPass123!',
             'password_confirmation' => 'TestPass123!',
@@ -322,6 +324,7 @@ class RegistrationOtpTest extends TestCase
 
         $this->postJson('/api/v1/auth/register', [
             'name' => 'International Phone Customer',
+            'email' => 'registration-international@example.test',
             'phone' => $international,
             'password' => 'TestPass123!',
             'password_confirmation' => 'TestPass123!',
