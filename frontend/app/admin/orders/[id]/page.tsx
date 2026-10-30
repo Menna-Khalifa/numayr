@@ -176,6 +176,7 @@ export default function AdminOrderDetailPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [openingAttachment, setOpeningAttachment] = useState<number | null>(null);
+  const [attachmentPreview, setAttachmentPreview] = useState<{url:string;name:string}|null>(null);
 
   async function openAttachment(id: number) {
     const token = getAuthToken();
@@ -186,12 +187,10 @@ export default function AdminOrderDetailPage() {
       if (!response.ok) throw new Error("تعذر فتح الصورة");
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.target = "_blank";
-      anchor.rel = "noopener noreferrer";
-      anchor.click();
-      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+      setAttachmentPreview((old) => {
+        if (old) URL.revokeObjectURL(old.url);
+        return {url, name: `مرفق الطلب ${id}`};
+      });
     } catch { setError("تعذر عرض مرفق الصيانة. تأكد من صلاحيات الوصول."); }
     finally { setOpeningAttachment(null); }
   }
@@ -448,6 +447,13 @@ export default function AdminOrderDetailPage() {
           })}
         </div>
       </section>
+
+      {attachmentPreview ? (
+        <div role="dialog" aria-modal="true" aria-label={attachmentPreview.name} className="fixed inset-0 z-[150] flex flex-col items-center justify-center gap-4 bg-[#061a2f]/90 p-5">
+          <button type="button" className="rounded-xl bg-white px-5 py-3 text-sm font-bold text-[#0d2b4e]" onClick={() => {URL.revokeObjectURL(attachmentPreview.url);setAttachmentPreview(null);}}>إغلاق الصورة</button>
+          <img src={attachmentPreview.url} alt={attachmentPreview.name} className="max-h-[82vh] max-w-full rounded-xl object-contain" />
+        </div>
+      ) : null}
 
       {success ? (
         <motion.div
