@@ -517,7 +517,7 @@ export default function AdminOrderDetailPage() {
               {[
                 ["الخدمة", order.service_name || order.service_code || "—"],
                 ["الأولوية", order.priority === "urgent" ? "عاجل" : order.priority === "standard" ? "عادي" : order.priority || "عادي"],
-                ["الموعد المفضل", order.preferred_date ? new Intl.DateTimeFormat("ar-SA", { timeZone: "Asia/Riyadh", year: "numeric", month: "long", day: "numeric" }).format(new Date(order.preferred_date)) : "—"],
+                ["الموعد المفضل", order.preferred_date ? new Intl.DateTimeFormat("ar-SA-u-ca-gregory", { timeZone: "Asia/Riyadh", year: "numeric", month: "long", day: "numeric" }).format(new Date(order.preferred_date)) : "—"],
                 ["الفترة", ({ morning: "صباحًا", noon: "ظهرًا", afternoon: "ظهرًا", evening: "مساءً" } as Record<string, string>)[order.preferred_time_slot || ""] || order.preferred_time_slot || "—"],
                 [
                   "الكمية",
