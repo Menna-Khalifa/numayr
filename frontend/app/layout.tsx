@@ -10,13 +10,17 @@ const almarai = Almarai({
   variable: "--font-almarai",
 });
 
+const numayrFavicon = "https://res.cloudinary.com/deayevwds/image/upload/v1791205176/Numayr_Arch_and_Droplet_Logo_dt4yg5.png?numayr_icon=2";
+
 export const metadata: Metadata = {
   title: "نمير | NUMAYR",
   description: "منصة نمير لإدارة خدمات البرادات والمياه والصيانة",
   icons: {
-    icon: [{ url: "https://res.cloudinary.com/deayevwds/image/upload/v1791205176/Numayr_Arch_and_Droplet_Logo_dt4yg5.png", type: "image/png" }],
-    shortcut: "https://res.cloudinary.com/deayevwds/image/upload/v1791205176/Numayr_Arch_and_Droplet_Logo_dt4yg5.png",
-    apple: "https://res.cloudinary.com/deayevwds/image/upload/v1791205176/Numayr_Arch_and_Droplet_Logo_dt4yg5.png",
+    icon: [
+      { url: numayrFavicon, type: "image/png", sizes: "any" },
+    ],
+    shortcut: [{ url: numayrFavicon, type: "image/png" }],
+    apple: [{ url: numayrFavicon, type: "image/png" }],
   },
 };
 
