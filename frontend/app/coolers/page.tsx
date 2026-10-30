@@ -599,7 +599,11 @@ function AddCoolerModal({
       return;
     }
 
-    if (waterSource === "tanker" && (!Number.isInteger(Number(tankCapacity)) || Number(tankCapacity) <= 0)) {
+    if (!waterSource) {
+      setError("اختر مصدر التعبئة أولًا");
+      return;
+    }
+    if (waterSource === "tanker" && (!tankCapacity.trim() || !Number.isInteger(Number(tankCapacity)) || Number(tankCapacity) <= 0 || Number(tankCapacity) > 10000000)) {
       setError("أدخل سعة الخزان باللتر برقم صحيح أكبر من صفر");
       return;
     }
@@ -757,6 +761,7 @@ function AddCoolerModal({
                   <label htmlFor="water-source" className="mb-2 block text-[12px] font-extrabold text-[#0d2b4e]">مصدر التعبئة</label>
                   <select
                     id="water-source"
+                    required
                     value={waterSource}
                     onChange={(event) => {
                       const source = event.target.value as "network" | "tanker" | "";
