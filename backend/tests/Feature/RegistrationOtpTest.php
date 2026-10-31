@@ -345,4 +345,38 @@ class RegistrationOtpTest extends TestCase
 
         $this->assertTrue($user->fresh()->is_active);
     }
+
+    public function test_registration_responses_are_arabic_and_use_configured_otp_expiry(): void
+    {
+        config()->set('services.authentica.otp_ttl_minutes', 7);
+
+        $sms = Mockery::mock(SmsService::class);
+        $sms->shouldReceive('sendOtp')->once();
+        $this->app->instance(SmsService::class, $sms);
+
+        $this->postJson('/api/v1/auth/register', [
+            'name' => 'Arabic Response Test',
+            'email' => 'arabic-response@example.test',
+            'phone' => '0554445566',
+            'password' => 'TestPass123!',
+            'password_confirmation' => 'TestPass123!',
+        ])->assertCreated()
+            ->assertJsonPath('message', 'تم إنشاء الحساب بنجاح، يرجى تأكيد رقم الجوال.')
+            ->assertJsonPath('data.expires_in_minutes', 7);
+
+        $this->postJson('/api/v1/auth/register/verify-otp', [
+            'phone' => '0554445566',
+            'otp' => '0000',
+        ])->assertUnprocessable()
+            ->assertJsonPath('message', 'رمز التحقق غير صحيح أو منتهي الصلاحية.');
+
+        $this->postJson('/api/v1/auth/register/resend-otp', [
+            'phone' => '0554445566',
+        ])->assertOk()
+            ->assertJsonPath(
+                'message',
+                'إذا كان الحساب بانتظار التفعيل، فقد يتم إرسال رمز تحقق جديد وفقًا لفترة الانتظار.'
+            );
+    }
+
 }
