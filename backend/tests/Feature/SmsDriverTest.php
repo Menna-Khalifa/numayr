@@ -80,6 +80,32 @@ class SmsDriverTest extends TestCase
         }
     }
 
+    public function test_authentica_sends_transactional_sms(): void
+    {
+        config()->set('services.sms.driver', 'authentica');
+        config()->set('services.sms.from', 'NUMAYR');
+        Http::fake(['api.authentica.sa/*' => Http::response(['success' => true], 200)]);
+
+        app(SmsService::class)->send('0501234567', 'تم تأكيد طلبك');
+
+        Http::assertSentCount(1);
+        Http::assertSent(fn (Request $request) =>
+            $request->url() === 'https://api.authentica.sa/api/v2/send-sms'
+            && $request['phone'] === '+966501234567'
+            && $request['sender_name'] === 'NUMAYR'
+            && $request['message'] === 'تم تأكيد طلبك'
+        );
+    }
+
+    public function test_transactional_sms_failure_is_detected(): void
+    {
+        config()->set('services.sms.driver', 'authentica');
+        config()->set('services.sms.from', 'NUMAYR');
+        Http::fake(['api.authentica.sa/*' => Http::response(['success' => false], 200)]);
+        $this->expectException(RuntimeException::class);
+        app(SmsService::class)->send('0501234567', 'رسالة اختبار');
+    }
+
     public function test_unknown_driver_is_rejected(): void
     {
         config()->set('services.sms.driver', 'unknown');
