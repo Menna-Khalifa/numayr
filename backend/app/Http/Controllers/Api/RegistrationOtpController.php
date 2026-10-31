@@ -37,7 +37,7 @@ class RegistrationOtpController extends Controller
 
             if (! $user || $user->is_active) {
                 throw ValidationException::withMessages([
-                    'otp' => ['Invalid or expired verification code.'],
+                    'otp' => ['رمز التحقق غير صحيح أو منتهي الصلاحية.'],
                 ]);
             }
 
@@ -52,7 +52,7 @@ class RegistrationOtpController extends Controller
 
             if (! $record || $record->isExpired() || $record->attempts >= 5) {
                 throw ValidationException::withMessages([
-                    'otp' => ['Invalid or expired verification code.'],
+                    'otp' => ['رمز التحقق غير صحيح أو منتهي الصلاحية.'],
                 ]);
             }
 
@@ -60,9 +60,9 @@ class RegistrationOtpController extends Controller
                 $record->increment('attempts');
 
                 return response()->json([
-                    'message' => 'Invalid or expired verification code.',
+                    'message' => 'رمز التحقق غير صحيح أو منتهي الصلاحية.',
                     'errors' => [
-                        'otp' => ['Invalid or expired verification code.'],
+                        'otp' => ['رمز التحقق غير صحيح أو منتهي الصلاحية.'],
                     ],
                 ], 422);
             }
@@ -93,7 +93,7 @@ class RegistrationOtpController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Phone verified successfully.',
+                'message' => 'تم تأكيد رقم الجوال بنجاح.',
                 'data' => [
                     'user' => $user->fresh(),
                     'token' => $token,
@@ -117,7 +117,7 @@ class RegistrationOtpController extends Controller
 
         $message = [
             'success' => true,
-            'message' => 'If verification is pending, a new code may be sent.',
+            'message' => 'إذا كان الحساب بانتظار التفعيل، فقد يتم إرسال رمز تحقق جديد وفقًا لفترة الانتظار.',
         ];
 
         \Illuminate\Support\Facades\DB::transaction(function () use ($validated, $smsService) {
