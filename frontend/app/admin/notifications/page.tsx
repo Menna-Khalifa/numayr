@@ -9,14 +9,26 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type N={id:number;type:string;title:string;body:string;data?:Record<string,unknown>|null;read_at?:string|null;created_at?:string|null};
-type Response={success:true;data:{notifications:{data:N[]};unread_count:number}};
+type Response={success:true;data:{notifications:{data:N[];current_page:number;last_page:number};unread_count:number}};
 
 export default function Page(){
  const router=useRouter();
- const [items,setItems]=useState<N[]>([]);const [unread,setUnread]=useState(0);const [loading,setLoading]=useState(true);const [markingAll,setMarkingAll]=useState(false);const [readingId,setReadingId]=useState<number|null>(null);const [filter,setFilter]=useState<"all"|"unread"|"read">("all");const [search,setSearch]=useState("");const [error,setError]=useState("");
- const load=useCallback(async()=>{const token=getAuthToken();if(!token)return;setLoading(true);setError("");try{const r=await apiRequest<Response>("/notifications?per_page=100",{token});setItems(r.data.notifications.data||[]);setUnread(Number(r.data.unread_count||0))}catch(e){setError(e instanceof ApiError?e.message:"تعذر تحميل الإشعارات")}finally{setLoading(false)}},[]);
+ const [items,setItems]=useState<N[]>([]);const [nextPage,setNextPage]=useState(2);const [hasMore,setHasMore]=useState(false);const [loadingMore,setLoadingMore]=useState(false);const [unread,setUnread]=useState(0);const [loading,setLoading]=useState(true);const [markingAll,setMarkingAll]=useState(false);const [readingId,setReadingId]=useState<number|null>(null);const [filter,setFilter]=useState<"all"|"unread"|"read">("all");const [search,setSearch]=useState("");const [error,setError]=useState("");
+ const load=useCallback(async()=>{const token=getAuthToken();if(!token)return;setLoading(true);setError("");try{const r=await apiRequest<Response>("/notifications?per_page=100",{token});setItems(r.data.notifications.data||[]);setHasMore(r.data.notifications.current_page<r.data.notifications.last_page);setNextPage(2);setUnread(Number(r.data.unread_count||0))}catch(e){setError(e instanceof ApiError?e.message:"تعذر تحميل الإشعارات")}finally{setLoading(false)}},[]);
  useEffect(()=>{queueMicrotask(()=>{void load()})},[load]);
 
+ async function loadMore(){
+  if(loadingMore||!hasMore)return;
+  const token=getAuthToken();if(!token)return;
+  setLoadingMore(true);
+  try{
+   const r=await apiRequest<Response>(`/notifications?per_page=100&page=${nextPage}`,{token});
+   setItems(current=>{const ids=new Set(current.map(x=>x.id));return [...current,...r.data.notifications.data.filter(x=>!ids.has(x.id))]});
+   setHasMore(r.data.notifications.current_page<r.data.notifications.last_page);
+   setNextPage(r.data.notifications.current_page+1);
+  }catch(e){setError(e instanceof ApiError?e.message:"تعذر تحميل بقية الإشعارات")}
+  finally{setLoadingMore(false)}
+ }
  async function markAll(){
  if(markingAll)return;
  const token=getAuthToken();if(!token)return;
@@ -140,5 +152,9 @@ export default function Page(){
  </div>
 </section>
 <section className="overflow-hidden rounded-[26px] border border-[#dfecef] bg-white">{loading?<div className="grid min-h-[300px] place-items-center"><span className="h-10 w-10 animate-spin rounded-full border-[3px] border-[#d8e8ec] border-t-[#16a6c9]"/></div>:visibleItems.length?<div className="divide-y divide-[#edf2f4]">{visibleItems.map(n=>{const Icon=n.type.includes("cooler")?Droplets:n.type.includes("order")?PackageCheck:Bell;return <div key={n.id} className="group flex items-center gap-4 border-r-4 border-transparent px-5 py-5 transition-all duration-200 hover:border-[#16a6c9] hover:bg-[#e2f5fa] hover:shadow-[inset_0_0_0_1px_rgba(22,166,201,.15)]"><button type="button" onClick={()=>void open(n)} className={`flex w-full items-center gap-4 py-2 text-right transition-transform duration-200 group-hover:-translate-x-1 ${n.read_at?"bg-white":"bg-[#f7fcfd]"}`}><div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] ${n.read_at?"bg-[#f1f6f8] text-[#8096a4]":"bg-[#e7f8fb] text-[#16a6c9]"}`}><Icon className="h-5 w-5"/></div><div className="min-w-0 flex-1"><div className="flex items-center gap-2"><p className="text-[14px] font-extrabold">{n.title}</p>{!n.read_at?<span className="h-2 w-2 rounded-full bg-[#e53935]"/>:null}</div><p className="mt-1 text-[13px] font-bold leading-7 text-[#647f90]">{n.body}</p><div className="mt-2 flex items-center gap-1 text-[9px] font-bold text-[#9aabb5]"><Clock3 className="h-3 w-3"/>{n.created_at?new Intl.DateTimeFormat("ar-EG-u-nu-latn",{year:"numeric",month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"}).format(new Date(n.created_at)):"—"}</div></div></button>{!n.read_at?<button type="button" title="تحديد كمقروء" aria-label="تحديد كمقروء" disabled={readingId===n.id} onClick={()=>void markOne(n)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[13px] border border-[#bfe4ec] bg-white text-[#108baa] transition hover:border-[#16a6c9] hover:bg-[#cdeff6] disabled:opacity-50">{readingId===n.id?<span className="h-4 w-4 animate-spin rounded-full border-2 border-t-[#16a6c9]"/>:<Check className="h-4 w-4"/>}</button>:null}</div>})}</div>:<AdminEmpty icon={Bell} title="لا توجد إشعارات" description="لا توجد تنبيهات حاليًا."/>}</section>
+ {hasMore&&!loading?<div className="flex justify-center"><button type="button"
+ onClick={()=>void loadMore()} disabled={loadingMore}
+ className="rounded-xl border border-[#c9e3e9] bg-white px-6 py-3 text-xs font-bold text-[#0d2b4e] disabled:opacity-50">
+ {loadingMore?"جاري تحميل المزيد...":"عرض إشعارات أقدم"}</button></div>:null}
  </div>
 }
