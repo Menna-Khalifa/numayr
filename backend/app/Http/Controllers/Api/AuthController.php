@@ -73,11 +73,11 @@ class AuthController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Account created. Please verify your phone number.',
+            'message' => 'تم إنشاء الحساب بنجاح، يرجى تأكيد رقم الجوال.',
             'data' => [
                 'phone' => $user->phone,
                 'requires_phone_verification' => true,
-                'expires_in_minutes' => 10,
+                'expires_in_minutes' => (int) config('services.authentica.otp_ttl_minutes', 5),
             ],
         ], 201);
     }
