@@ -124,6 +124,9 @@ export default function NotificationsPage() {
   >([]);
 
   const [unreadCount, setUnreadCount] = useState(0);
+  const [nextPage, setNextPage] = useState(2);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [readingId, setReadingId] =
@@ -165,6 +168,8 @@ export default function NotificationsPage() {
           Array.isArray(payload.data)
         ) {
           setNotifications(payload.data);
+          setHasMore(payload.current_page < payload.last_page);
+          setNextPage(payload.current_page + 1);
         } else {
           setNotifications([]);
         }
@@ -294,6 +299,33 @@ export default function NotificationsPage() {
 
     if (navigate) {
       openNotification(notification);
+    }
+  }
+
+  async function loadMore() {
+    if (loadingMore || !hasMore) return;
+    const token = getAuthToken();
+    if (!token) { router.replace("/login"); return; }
+    setLoadingMore(true);
+    try {
+      const result = await apiRequest<NotificationsResponse>(
+        `/notifications?per_page=100&page=${nextPage}`, { token }
+      );
+      const payload = result.data.notifications;
+      if (!Array.isArray(payload)) {
+        setNotifications((current) => {
+          const ids = new Set(current.map((item) => item.id));
+          return [...current, ...payload.data.filter((item) => !ids.has(item.id))];
+        });
+        setHasMore(payload.current_page < payload.last_page);
+        setNextPage(payload.current_page + 1);
+      } else {
+        setHasMore(false);
+      }
+    } catch (exception) {
+      setError(exception instanceof ApiError ? exception.message : "تعذر تحميل بقية الإشعارات");
+    } finally {
+      setLoadingMore(false);
     }
   }
 
@@ -597,6 +629,14 @@ export default function NotificationsPage() {
             )}
           </div>
         )}
+        {hasMore && !loading ? (
+          <div className="mt-6 flex justify-center">
+            <button type="button" onClick={() => void loadMore()} disabled={loadingMore}
+              className="rounded-2xl border border-[#c9e3e9] bg-white px-7 py-3 text-xs font-extrabold text-[#0d2b4e] disabled:opacity-50">
+              {loadingMore ? "جاري تحميل المزيد..." : "عرض إشعارات أقدم"}
+            </button>
+          </div>
+        ) : null}
       </div>
     </AppShell>
   );
