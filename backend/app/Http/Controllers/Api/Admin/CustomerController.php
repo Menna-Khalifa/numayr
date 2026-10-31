@@ -127,8 +127,8 @@ if ($customer->role !== 'customer') {
         return response()->json([
             'success' => true,
             'message' => $customer->is_active
-                ? 'Customer activated successfully'
-                : 'Customer deactivated successfully',
+                ? 'تم تفعيل حساب العميل بنجاح'
+                : 'تم إيقاف حساب العميل بنجاح',
             'data' => [
                 'customer' => $customer->fresh(),
             ],
