@@ -99,5 +99,13 @@ export async function apiRequest<T>(
     );
   }
 
+  // Treat unexpected non-JSON responses as errors instead of passing null to UI.
+  if (payload === null && response.status !== 204) {
+    throw new ApiError(
+      "استجاب الخادم بشكل غير متوقع، يُرجى المحاولة مرة أخرى",
+      response.status
+    );
+  }
+
   return payload as T;
 }
