@@ -12,6 +12,11 @@ Schedule::command('subscriptions:expire')
     ->hourly()
     ->withoutOverlapping();
 
+Schedule::command('coolers:smart-reminders')
+    ->dailyAt('09:00')
+    ->timezone('Asia/Riyadh')
+    ->withoutOverlapping();
+
 /*
 |--------------------------------------------------------------------------
 | First-time account provisioning
