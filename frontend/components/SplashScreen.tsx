@@ -211,12 +211,12 @@ export default function SplashScreen() {
           style={{ x: sceneX, y: sceneY }}
         >
           <div
-            className="relative flex h-[380px] w-[380px] items-center justify-center sm:h-[470px] sm:w-[470px]"
+            className="relative flex aspect-square w-[min(380px,92vw)] items-center justify-center sm:w-[470px]"
             style={{ perspective: 1200 }}
           >
             {/* water plane */}
             <div
-              className="absolute bottom-[6%] left-1/2 h-[170px] w-[360px] -translate-x-1/2 sm:w-[470px]"
+              className="absolute bottom-[6%] left-1/2 h-[170px] w-[94%] -translate-x-1/2 sm:w-[470px]"
               style={{ perspective: 800 }}
             >
               <motion.div
