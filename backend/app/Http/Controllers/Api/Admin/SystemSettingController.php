@@ -79,7 +79,7 @@ $setting = SystemSetting::query()
 
         return response()->json([
             'success' => true,
-            'message' => 'Setting updated successfully',
+            'message' => 'تم تحديث الإعداد بنجاح',
             'data' => [
                 'setting' => $setting->fresh(),
             ],
