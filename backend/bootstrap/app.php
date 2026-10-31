@@ -6,6 +6,10 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Illuminate\Auth\AuthenticationException;
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -29,5 +33,49 @@ return Application::configure(basePath: dirname(__DIR__))
             fn (Request $request) => $request->is('api/*') ||
                 $request->expectsJson(),
         );
+
+        $exceptions->render(function (AuthenticationException $exception, Request $request) {
+            if (! $request->is('api/*')) {
+                return null;
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'يُرجى تسجيل الدخول للمتابعة',
+            ], 401);
+        });
+
+        $exceptions->render(function (AuthorizationException $exception, Request $request) {
+            if (! $request->is('api/*')) {
+                return null;
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'ليس لديك صلاحية لتنفيذ هذا الإجراء',
+            ], 403);
+        });
+
+        $exceptions->render(function (ModelNotFoundException $exception, Request $request) {
+            if (! $request->is('api/*')) {
+                return null;
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'العنصر المطلوب غير موجود',
+            ], 404);
+        });
+
+        $exceptions->render(function (NotFoundHttpException $exception, Request $request) {
+            if (! $request->is('api/*')) {
+                return null;
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'المسار المطلوب غير موجود',
+            ], 404);
+        });
     })
     ->create();
