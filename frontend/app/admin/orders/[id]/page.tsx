@@ -716,7 +716,7 @@ export default function AdminOrderDetailPage() {
 
             <div className="mt-5 space-y-3">
               {[
-                ["المبلغ قبل الضريبة", money(order.subtotal, order.currency)],
+                ["قيمة الخدمة قبل رسوم الاستعجال والضريبة", money(Math.max(0, Number(order.subtotal || 0) - Number(order.urgent_fee || 0)), order.currency)],
                 ["رسوم عاجلة", money(order.urgent_fee, order.currency)],
                 [
                   `الضريبة ${order.tax_rate ?? 0}%`,
