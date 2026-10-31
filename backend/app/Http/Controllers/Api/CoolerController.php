@@ -122,6 +122,13 @@ class CoolerController extends Controller
                 'coolers/'.$user->id,
                 'public'
             );
+
+            if (! is_string($photoPath) || $photoPath === '') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'تعذر رفع الصورة، يرجى المحاولة مرة أخرى',
+                ], 422);
+            }
         }
 
         try {
