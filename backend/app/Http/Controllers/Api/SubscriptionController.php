@@ -352,7 +352,7 @@ if ($unapprovedCoolers->isNotEmpty()) {
                 $paymentModel->update([
                     'status' => Payment::STATUS_FAILED,
                     'failed_at' => now(),
-                    'failure_reason' => $exception->getMessage(),
+                    'failure_reason' => 'تعذر بدء عملية الدفع لدى مزود الخدمة',
                 ]);
 
                 $subscriptionModel->update([
@@ -361,7 +361,11 @@ if ($unapprovedCoolers->isNotEmpty()) {
                 ]);
             });
 
-            throw $exception;
+            report($exception);
+
+            throw ValidationException::withMessages([
+                'subscription' => ['تعذر بدء عملية الدفع، يرجى المحاولة لاحقًا'],
+            ]);
         }
 
         $payment = DB::transaction(function () use (
