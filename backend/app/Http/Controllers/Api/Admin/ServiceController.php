@@ -104,11 +104,11 @@ $validated = $request->validate([
                 'boolean',
             ],
 
-            'settings' => [
-                'sometimes',
-                'nullable',
-                'array',
-            ],
+            'settings' => ['sometimes', 'nullable', 'array'],
+            'settings.options' => ['sometimes', 'array', 'min:1'],
+            'settings.options.*.code' => ['required', 'string', 'max:100', 'distinct'],
+            'settings.options.*.name_ar' => ['required', 'string', 'max:255'],
+            'settings.options.*.price' => ['required', 'numeric', 'min:0'],
         ]);
 
         $minimumQuantity = array_key_exists('minimum_quantity', $validated)
@@ -126,10 +126,10 @@ $validated = $request->validate([
         ) {
             return response()->json([
                 'success' => false,
-                'message' => 'Maximum quantity cannot be less than minimum quantity.',
+                'message' => 'الحد الأقصى للكمية لا يمكن أن يقل عن الحد الأدنى',
                 'errors' => [
                     'maximum_quantity' => [
-                        'Maximum quantity cannot be less than minimum quantity.',
+                        'الحد الأقصى للكمية لا يمكن أن يقل عن الحد الأدنى',
                     ],
                 ],
             ], 422);
@@ -139,7 +139,7 @@ $validated = $request->validate([
 
         return response()->json([
             'success' => true,
-            'message' => 'Service updated successfully',
+            'message' => 'تم تحديث الخدمة بنجاح',
             'data' => [
                 'service' => $service->fresh(),
             ],

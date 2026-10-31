@@ -720,12 +720,15 @@ function EditCoolerModal({
       formData.append("name", name.trim());
       formData.append("address_id", addressId);
 
-      if (landmark.trim()) formData.append("landmark", landmark.trim());
-      if (filterType.trim()) formData.append("filter_type", filterType.trim());
-      if (filterInstalledAt) {
-        formData.append("filter_installed_at", filterInstalledAt);
+      // Send nullable values explicitly so cleared fields actually persist.
+      formData.append("landmark", landmark.trim());
+      formData.append("filter_type", filterType.trim());
+      formData.append("filter_installed_at", filterInstalledAt);
+      formData.append("notes", notes.trim());
+      formData.append("water_source", waterSource);
+      if (waterSource === "tanker") {
+        formData.append("tank_capacity_liters", tankCapacity);
       }
-      if (notes.trim()) formData.append("notes", notes.trim());
       if (photo) formData.append("photo", photo);
 
       const response = await fetch(`${API_URL}/coolers/${cooler.id}`, {

@@ -61,6 +61,7 @@ type Cooler = {
   photo: string | null;
   landmark: string | null;
   is_active: boolean;
+  approval_status?: "pending_review" | "approved" | "rejected" | "disabled";
 };
 
 type Subscription = {
@@ -711,6 +712,7 @@ function PlanSelectionModal({
     return coolers.filter(
       (cooler) =>
         cooler.is_active &&
+        cooler.approval_status === "approved" &&
         cooler.address_id === addressId
     );
   }, [addressId, coolers]);
@@ -842,8 +844,7 @@ function PlanSelectionModal({
 
             <p className="mx-auto mt-3 max-w-md text-sm font-bold leading-7 text-[#7f929f]">
               حفظنا الباقة والموقع والبرادات المختارة.
-              سنكمل إنشاء الاشتراك الفعلي عندما نبدأ ربط
-              بوابة الدفع.
+              لن يتفعل الاشتراك إلا بعد إتمام الدفع والتحقق منه.
             </p>
 
             <div className="mt-5 rounded-[18px] border border-[#dcebef] bg-[#f1f9fb] p-4">

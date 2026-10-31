@@ -15,6 +15,9 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+type FilterOption = { code: string; name_ar: string; name_en?: string; description_ar?: string; price: number | string };
+type ServiceSettings = { options?: FilterOption[]; [key: string]: unknown };
+
 type Service = {
   id: number;
   code: string;
@@ -24,11 +27,12 @@ type Service = {
   base_price?: number | string | null;
   unit_price?: number | string | null;
   unit?: string | null;
-  min_quantity?: number | string | null;
-  max_quantity?: number | string | null;
+  minimum_quantity?: number | string | null;
+  maximum_quantity?: number | string | null;
   quantity_step?: number | string | null;
   urgent_fee?: number | string | null;
   is_active: boolean;
+  settings?: ServiceSettings | null;
 };
 
 type ServicesResponse = {
@@ -68,6 +72,10 @@ function priceSummary(service: Service) {
       label: "التسعير",
       value: "حسب المعاينة",
     };
+  }
+
+  if (service.code === "filter_change" && service.settings?.options?.length) {
+    return { label: "التسعير", value: "حسب خدمة الفلتر المختارة" };
   }
 
   if (service.pricing_model === "per_unit") {
@@ -134,6 +142,16 @@ export default function AdminServicesPage() {
     const token = getAuthToken();
     if (!token) return;
 
+    if (!editing.name_ar?.trim()) {
+      setError("اسم الخدمة بالعربية مطلوب");
+      return;
+    }
+    if (editing.code === "filter_change" && editing.settings?.options?.some((o) =>
+      o.price === "" || !Number.isFinite(Number(o.price)) || Number(o.price) < 0
+    )) {
+      setError("أسعار الفلاتر يجب أن تكون أرقامًا غير سالبة");
+      return;
+    }
     setSaving(true);
     setError("");
 
@@ -153,20 +171,26 @@ export default function AdminServicesPage() {
                 ? null
                 : Number(editing.unit_price),
             unit: editing.unit || null,
-            min_quantity:
-              editing.min_quantity === null || editing.min_quantity === ""
+            minimum_quantity:
+              editing.minimum_quantity === null || editing.minimum_quantity === ""
                 ? null
-                : Number(editing.min_quantity),
-            max_quantity:
-              editing.max_quantity === null || editing.max_quantity === ""
+                : Number(editing.minimum_quantity),
+            maximum_quantity:
+              editing.maximum_quantity === null || editing.maximum_quantity === ""
                 ? null
-                : Number(editing.max_quantity),
+                : Number(editing.maximum_quantity),
             quantity_step:
               editing.quantity_step === null || editing.quantity_step === ""
                 ? null
                 : Number(editing.quantity_step),
             urgent_fee: Number(editing.urgent_fee || 0),
             is_active: editing.is_active,
+            ...(editing.code === "filter_change" && editing.settings?.options ? {
+              settings: {
+                ...editing.settings,
+                options: editing.settings.options.map((option) => ({ ...option, price: Number(option.price) })),
+              },
+            } : {}),
           }),
         },
       );
@@ -387,6 +411,29 @@ export default function AdminServicesPage() {
                 </select>
               </div>
             </div>
+
+            {editing.code === "filter_change" && editing.settings?.options?.length ? (
+              <section className="mt-5 space-y-3 rounded-[18px] border border-[#dce9ed] bg-[#f7fafb] p-4">
+                <h3 className="text-sm font-extrabold text-[#0d2b4e]">أسعار خيارات الفلاتر</h3>
+                <p className="text-xs text-[#587183]">هذه الأسعار هي المستخدمة عند إنشاء طلب تغيير الفلاتر.</p>
+                {editing.settings.options.map((option, index) => (
+                  <div key={option.code} className="grid grid-cols-[1fr_130px] items-center gap-3">
+                    <label htmlFor={`filter-price-${option.code}`} className="text-xs font-bold text-[#38536a]">{option.name_ar}</label>
+                    <input id={`filter-price-${option.code}`} type="number" min="0" step="0.01"
+                      value={option.price}
+                      onChange={(event) => {
+                        const price = event.target.value;
+                        setEditing((current) => current?.settings?.options ? ({
+                          ...current,
+                          settings: { ...current.settings,
+                            options: current.settings.options.map((item, i) => i === index ? { ...item, price } : item) },
+                        }) : current);
+                      }}
+                      className="h-11 w-full rounded-xl border border-[#dce9ed] bg-white px-3 text-sm text-[#0d2b4e]" />
+                  </div>
+                ))}
+              </section>
+            ) : null}
 
             <label className="mt-5 flex cursor-pointer items-center justify-between rounded-[16px] bg-[#f7fafb] p-4">
               <span className="text-xs font-extrabold text-[#38536a]">

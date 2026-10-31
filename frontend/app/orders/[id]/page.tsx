@@ -140,6 +140,7 @@ export default function OrderDetailsPage() {
           }
         );
 
+        setAttachmentUrls({});
         setOrder(response.data.order);
       } catch (exception) {
         if (
@@ -175,7 +176,6 @@ export default function OrderDetailsPage() {
 
     let cancelled = false;
     const createdUrls: string[] = [];
-    setAttachmentUrls({});
 
     void Promise.all(attachments.map(async (attachment) => {
       try {
