@@ -42,6 +42,17 @@ class ServiceCatalogTest extends TestCase
             ->assertOk()->assertJsonPath('data.service.settings.options.1.price', 165);
     }
 
+    public function test_core_service_pricing_mode_cannot_be_changed(): void
+    {
+        $this->seed(ServiceSeeder::class);
+        $service = Service::query()->where('code', 'water_refill')->firstOrFail();
+        $admin = User::factory()->create(['role' => 'admin', 'is_active' => true]);
+        $this->actingAs($admin)->patchJson('/api/v1/admin/services/'.$service->id, [
+            'pricing_model' => 'fixed',
+        ])->assertUnprocessable()->assertJsonValidationErrors('pricing_model');
+        $this->assertSame('per_unit', $service->fresh()->pricing_model);
+    }
+
     public function test_subscription_plans_are_available_after_catalog_seeding(): void
     {
         $this->seed(SubscriptionPlanSeeder::class);
