@@ -111,6 +111,21 @@ $validated = $request->validate([
             'settings.options.*.price' => ['required', 'numeric', 'min:0'],
         ]);
 
+        // Core booking screens rely on their prescribed pricing model.
+        $corePricing = [
+            'water_refill' => 'per_unit',
+            'maintenance' => 'quote',
+            'filter_change' => 'fixed',
+        ];
+        if (isset($corePricing[$service->code], $validated['pricing_model'])
+            && $validated['pricing_model'] !== $corePricing[$service->code]) {
+            return response()->json([
+                'success' => false,
+                'message' => 'نوع تسعير هذه الخدمة مرتبط بطريقة الحجز ولا يمكن تغييره',
+                'errors' => ['pricing_model' => ['لا يمكن تغيير نموذج التسعير لهذه الخدمة']],
+            ], 422);
+        }
+
         $minimumQuantity = array_key_exists('minimum_quantity', $validated)
             ? $validated['minimum_quantity']
             : $service->minimum_quantity;
