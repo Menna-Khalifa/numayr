@@ -157,7 +157,7 @@
             <tr>
                 <td>
                     <span class="label">رقم الطلب</span><br>
-                    <span class="value ltr">{{ $invoice->order?->order_number ?? '-' }}</span>
+                    <span class="value ltr">{{ $invoice->order?->order_number ?? ($invoice->subscription_id ? 'اشتراك #'.$invoice->subscription_id : '-') }}</span>
                 </td>
 
                 <td>
