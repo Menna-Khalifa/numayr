@@ -395,6 +395,8 @@ export default function AdminServicesPage() {
                   نموذج التسعير
                 </label>
                 <select
+                  disabled={["water_refill", "maintenance", "filter_change"].includes(editing.code)}
+                  title="نوع التسعير مرتبط بآلية تقديم الخدمة"
                   value={editing.pricing_model || "fixed"}
                   onChange={(event) =>
                     setEditing((current) =>
