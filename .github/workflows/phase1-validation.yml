@@ -28,7 +28,7 @@ jobs:
           php artisan key:generate
           mkdir -p database
           touch database/database.sqlite
-      - run: php artisan test
+      - run: php artisan test -c phpunit.phase1.xml
 
   frontend:
     runs-on: ubuntu-latest

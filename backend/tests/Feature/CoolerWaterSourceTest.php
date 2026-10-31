@@ -3,12 +3,12 @@
 namespace Tests\Feature;
 
 use App\Models\User;
-use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class CoolerWaterSourceTest extends TestCase
 {
-    use DatabaseTransactions;
+    use RefreshDatabase;
 
     private function customer(): User
     {
@@ -132,6 +132,28 @@ class CoolerWaterSourceTest extends TestCase
         $this->assertDatabaseHas('coolers', ['id' => $coolerId, 'address_id' => $second->id]);
         $this->actingAs($customer)->getJson("/api/v1/coolers/{$coolerId}")
             ->assertOk()->assertJsonPath('data.cooler.address.id', $second->id);
+    }
+
+    public function test_customer_updates_water_source_and_clears_capacity(): void
+    {
+        $customer = $this->customer();
+        $created = $this->actingAs($customer)->postJson('/api/v1/coolers', [
+            'name' => 'Test cooler',
+            'water_source' => 'network',
+        ])->assertCreated();
+        $id = $created->json('data.cooler.id');
+        $this->actingAs($customer)->putJson("/api/v1/coolers/{$id}", [
+            'water_source' => 'tanker',
+            'tank_capacity_liters' => 1200,
+        ])->assertOk()->assertJsonPath('data.cooler.tank_capacity_liters', 1200);
+        $this->actingAs($customer)->putJson("/api/v1/coolers/{$id}", [
+            'water_source' => 'network',
+        ])->assertOk()->assertJsonPath('data.cooler.tank_capacity_liters', null);
+        $this->assertDatabaseHas('coolers', [
+            'id' => $id,
+            'water_source' => 'network',
+            'tank_capacity_liters' => null,
+        ]);
     }
 
     public function test_customer_cannot_link_another_customers_address(): void

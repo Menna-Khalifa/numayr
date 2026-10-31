@@ -25,7 +25,7 @@ jobs:
           extensions: mbstring, dom, fileinfo, pdo_sqlite, sqlite3, gd
           coverage: none
       - run: composer install --no-interaction --prefer-dist --no-progress
-      - run: php artisan test
+      - run: php artisan test -c phpunit.phase1.xml
         env:
           APP_ENV: testing
           SMS_DRIVER: log

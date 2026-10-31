@@ -73,4 +73,4 @@ jobs:
           PAYMENT_PROVIDER: fake
         run: |
           php artisan migrate:fresh --force
-          php artisan test
+          php artisan test -c phpunit.phase1.xml

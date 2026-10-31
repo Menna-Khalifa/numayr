@@ -53,7 +53,7 @@ class PasswordResetFlowTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath(
                 'data.expires_in_minutes',
-                10
+                (int) config('services.authentica.otp_ttl_minutes', 5)
             );
 
         $this->assertNotNull($capturedOtp);
