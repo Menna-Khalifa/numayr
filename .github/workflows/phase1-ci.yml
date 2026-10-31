@@ -25,6 +25,11 @@ jobs:
           extensions: mbstring, dom, fileinfo, pdo_sqlite, sqlite3, gd
           coverage: none
       - run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Prepare disposable SQLite test configuration
+        run: |
+          cp .env.example .env
+          mkdir -p database
+          touch database/database.sqlite
       - run: php artisan test -c phpunit.phase1.xml
         env:
           APP_ENV: testing
