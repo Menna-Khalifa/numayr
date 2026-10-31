@@ -38,7 +38,7 @@ $phone = \App\Support\SaudiPhone::normalize($inputPhone) ?? $inputPhone;
                 'success' => true,
                 'message' => 'إذا كان رقم الجوال مسجلًا لدينا، فقد يتم إرسال رمز التحقق وفقًا لفترة الانتظار.',
                 'data' => [
-                    'expires_in_minutes' => 10,
+                    'expires_in_minutes' => (int) config('services.authentica.otp_ttl_minutes', 5),
                 ],
             ]);
         }
@@ -87,7 +87,7 @@ $phone = \App\Support\SaudiPhone::normalize($inputPhone) ?? $inputPhone;
             'success' => true,
             'message' => 'إذا كان رقم الجوال مسجلًا لدينا، فقد يتم إرسال رمز التحقق وفقًا لفترة الانتظار.',
             'data' => [
-                'expires_in_minutes' => 10,
+                'expires_in_minutes' => (int) config('services.authentica.otp_ttl_minutes', 5),
 
             ],
         ]);
