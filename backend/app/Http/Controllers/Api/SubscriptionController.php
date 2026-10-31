@@ -142,6 +142,15 @@ class SubscriptionController extends Controller
             ]);
         }
 
+        try {
+            $gateway = $gatewayManager->driver($provider);
+        } catch (Throwable $exception) {
+            report($exception);
+            throw ValidationException::withMessages([
+                'subscription' => ['خدمة الدفع غير متاحة حاليًا، يرجى المحاولة لاحقًا'],
+            ]);
+        }
+
         $user = $request->user();
 
         $plan = SubscriptionPlan::query()
@@ -325,8 +334,6 @@ if ($unapprovedCoolers->isNotEmpty()) {
         $payment = $result['payment'];
 
         try {
-            $gateway = $gatewayManager->driver($provider);
-
             $gatewayResult = $gateway->createPayment($payment);
         } catch (Throwable $exception) {
             DB::transaction(function () use (
