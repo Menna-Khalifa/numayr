@@ -25,4 +25,18 @@ class AdminAuthorizationTest extends TestCase
             ->assertJsonPath('success', false)
             ->assertJsonPath('message', 'ليس لديك صلاحية لتنفيذ هذا الإجراء');
     }
+    public function test_phase_two_technician_assignment_is_not_exposed(): void
+    {
+        $admin = User::factory()->create([
+            'role' => 'admin',
+            'is_active' => true,
+        ]);
+
+        Sanctum::actingAs($admin);
+
+        $this->postJson('/api/v1/admin/orders/1/assign', [
+            'technician_id' => 1,
+        ])->assertNotFound();
+    }
+
 }
