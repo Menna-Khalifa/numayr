@@ -478,10 +478,7 @@ Route::patch(
                     [OrderController::class, 'transition']
 
                 );
-                Route::post(
-                    '/orders/{order}/assign',
-                    [\App\Http\Controllers\Api\Admin\OrderAssignmentController::class, 'store']
-                );
+                // Technician dispatch belongs to phase 2 and is intentionally not exposed in phase 1.
 
                 Route::patch(
 
