@@ -1,4 +1,5 @@
 "use client";
+import { getSaudiDate } from "@/lib/saudi-date";
 
 
 
@@ -309,7 +310,7 @@ export default function RefillPage() {
 
   const [preferredDate, setPreferredDate] = useState(() =>
 
-    new Date().toISOString().slice(0, 10)
+    getSaudiDate()
 
   );
 
@@ -1401,7 +1402,7 @@ export default function RefillPage() {
 
                   active={priority === "urgent"}
 
-                  onClick={() => setPriority("urgent")}
+                  onClick={() => { setPriority("urgent"); setPreferredDate(getSaudiDate()); }}
 
                   title="طلب عاجل"
 
@@ -1443,11 +1444,7 @@ export default function RefillPage() {
 
                     value={preferredDate}
 
-                    min={new Date()
-
-                      .toISOString()
-
-                      .slice(0, 10)}
+                    min={getSaudiDate()} max={getSaudiDate(priority === "urgent" ? 0 : 2)}
 
                     onChange={(event) =>
 

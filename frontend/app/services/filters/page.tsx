@@ -1,4 +1,5 @@
 "use client";
+import { getSaudiDate } from "@/lib/saudi-date";
 
 import AppShell from "@/components/app/AppShell";
 import ServiceLoadError from "@/components/app/ServiceLoadError";
@@ -246,7 +247,7 @@ export default function FiltersPage() {
         }
 
         setPreferredDate(
-          new Date().toISOString().slice(0, 10)
+          getSaudiDate()
         );
       } catch (exception) {
         if (
@@ -650,9 +651,7 @@ export default function FiltersPage() {
                     <input
                       type="date"
                       value={preferredDate}
-                      min={new Date()
-                        .toISOString()
-                        .slice(0, 10)}
+                      min={getSaudiDate()} max={getSaudiDate(2)}
                       onChange={(event) =>
                         setPreferredDate(
                           event.target.value

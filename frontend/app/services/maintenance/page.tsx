@@ -1,4 +1,5 @@
 "use client";
+import { getSaudiDate } from "@/lib/saudi-date";
 
 
 
@@ -512,7 +513,7 @@ export default function MaintenancePage() {
 
         setPreferredDate(
 
-          new Date().toISOString().slice(0, 10)
+          getSaudiDate()
 
         );
 
@@ -1759,11 +1760,7 @@ export default function MaintenancePage() {
 
                   }
 
-                  onClick={() =>
-
-                    setPriority("urgent")
-
-                  }
+                  onClick={() => { setPriority("urgent"); setPreferredDate(getSaudiDate()); }}
 
                   title="طلب عاجل"
 
@@ -1811,11 +1808,7 @@ export default function MaintenancePage() {
 
                       value={preferredDate}
 
-                      min={new Date()
-
-                        .toISOString()
-
-                        .slice(0, 10)}
+                      min={getSaudiDate()} max={getSaudiDate(priority === "urgent" ? 0 : 2)}
 
                       onChange={(event) =>
 
