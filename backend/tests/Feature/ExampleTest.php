@@ -16,4 +16,21 @@ class ExampleTest extends TestCase
 
         $response->assertStatus(200);
     }
+
+    public function test_unknown_api_route_returns_arabic_not_found_message(): void
+    {
+        $this->getJson('/api/v1/not-a-real-route')
+            ->assertNotFound()
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'المسار المطلوب غير موجود');
+    }
+
+    public function test_protected_api_route_requires_login_in_arabic(): void
+    {
+        $this->getJson('/api/v1/profile')
+            ->assertUnauthorized()
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'يُرجى تسجيل الدخول للمتابعة');
+    }
+
 }
