@@ -47,11 +47,13 @@ class NotificationService
             }
         }
 
-        if (! $inAppEnabled) {
+        if (! $inAppEnabled && $channels === []) {
             return null;
         }
 
-        array_unshift($channels, 'in_app');
+        if ($inAppEnabled) {
+            array_unshift($channels, 'in_app');
+        }
 
         return Notification::create([
             'user_id' => $userId,
