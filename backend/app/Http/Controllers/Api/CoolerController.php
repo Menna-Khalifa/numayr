@@ -401,11 +401,14 @@ class CoolerController extends Controller
             ->coolers()
             ->findOrFail($cooler);
 
-        if ($coolerModel->photo) {
-            Storage::disk('public')->delete($coolerModel->photo);
-        }
+        $photoPath = $coolerModel->photo;
 
+        // Do not remove the file if relational constraints prevent deletion.
         $coolerModel->delete();
+
+        if ($photoPath) {
+            Storage::disk('public')->delete($photoPath);
+        }
 
         return response()->json([
             'success' => true,
