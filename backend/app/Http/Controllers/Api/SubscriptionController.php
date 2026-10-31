@@ -134,6 +134,14 @@ class SubscriptionController extends Controller
             ],
         ]);
 
+        // Validate configuration before creating pending subscription/payment rows.
+        $provider = config('payments.default');
+        if (! is_string($provider) || $provider === '') {
+            throw ValidationException::withMessages([
+                'subscription' => ['خدمة الدفع غير مهيأة حاليًا، يرجى المحاولة لاحقًا'],
+            ]);
+        }
+
         $user = $request->user();
 
         $plan = SubscriptionPlan::query()
@@ -315,14 +323,6 @@ if ($unapprovedCoolers->isNotEmpty()) {
 
         $subscription = $result['subscription'];
         $payment = $result['payment'];
-
-        $provider = config('payments.default');
-
-        if (! is_string($provider) || $provider === '') {
-            throw new RuntimeException(
-                'Payment provider is not configured.'
-            );
-        }
 
         try {
             $gateway = $gatewayManager->driver($provider);
