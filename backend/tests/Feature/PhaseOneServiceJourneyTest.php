@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Order;
+use App\Models\Service;
 use App\Models\User;
 use Database\Seeders\ServiceSeeder;
 use Database\Seeders\SystemSettingSeeder;
@@ -85,6 +86,26 @@ class PhaseOneServiceJourneyTest extends TestCase
         $this->actingAs($customer)->postJson("/api/v1/orders/{$id}/quote/approve")
             ->assertOk();
         $this->assertSame(Order::QUOTE_STATUS_APPROVED, Order::findOrFail($id)->quote_status);
+    }
+
+    public function test_zero_cost_order_transitions_and_updates_cooler(): void
+    {
+        extract($this->fixtures());
+        Service::query()->where('code', 'water_refill')->update(['unit_price' => 0]);
+        $this->actingAs($customer);
+        $created = $this->postJson('/api/v1/orders', [
+            'service_code' => 'water_refill', 'cooler_id' => $cooler->id,
+            'address_id' => $address->id, 'quantity' => 500,
+        ])->assertCreated();
+        $id = $created->json('data.order.id');
+        $this->actingAs($admin);
+        foreach (['confirmed', 'in_progress', 'completed'] as $status) {
+            $this->patchJson('/api/v1/admin/orders/'.$id.'/transition', ['status' => $status])
+                ->assertOk()->assertJsonPath('data.order.status', $status);
+        }
+        $this->assertNotNull($cooler->fresh()->last_refill_at);
+        $this->actingAs($customer)->getJson('/api/v1/orders/'.$id)
+            ->assertOk()->assertJsonPath('data.order.status', 'completed');
     }
 
     public function test_order_date_limits_match_the_service_booking_rules(): void
