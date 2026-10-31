@@ -9,6 +9,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
+use Throwable;
 
 class CoolerController extends Controller
 {
@@ -301,20 +303,26 @@ class CoolerController extends Controller
             $validated['remove_photo']
         );
 
-        if ($removePhoto && $coolerModel->photo) {
-            Storage::disk('public')->delete($coolerModel->photo);
-            $validated['photo'] = null;
-        }
+        $oldPhoto = $coolerModel->photo;
+        $newPhoto = null;
 
+        // Keep the existing photo until the replacement and database save succeed.
         if ($photo instanceof UploadedFile) {
-            if ($coolerModel->photo) {
-                Storage::disk('public')->delete($coolerModel->photo);
-            }
-
-            $validated['photo'] = $photo->store(
+            $newPhoto = $photo->store(
                 'coolers/'.$request->user()->id,
                 'public'
             );
+
+            if (! is_string($newPhoto) || $newPhoto === '') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'تعذر رفع الصورة، يرجى المحاولة مرة أخرى',
+                ], 422);
+            }
+
+            $validated['photo'] = $newPhoto;
+        } elseif ($removePhoto) {
+            $validated['photo'] = null;
         }
 
         if (array_key_exists('water_source', $validated)) {
@@ -323,13 +331,26 @@ class CoolerController extends Controller
                 : null;
         }
 
-        $coolerModel->update($validated);
+        try {
+            DB::transaction(function () use ($coolerModel, $validated) {
+                $coolerModel->update($validated);
+                $coolerModel->approval_status = 'pending_review';
+                $coolerModel->rejection_reason = null;
+                $coolerModel->reviewed_at = null;
+                $coolerModel->reviewed_by_user_id = null;
+                $coolerModel->save();
+            });
+        } catch (Throwable $exception) {
+            if ($newPhoto !== null) {
+                Storage::disk('public')->delete($newPhoto);
+            }
 
-        $coolerModel->approval_status = 'pending_review';
-        $coolerModel->rejection_reason = null;
-        $coolerModel->reviewed_at = null;
-        $coolerModel->reviewed_by_user_id = null;
-        $coolerModel->save();
+            throw $exception;
+        }
+
+        if ($oldPhoto && ($newPhoto !== null || $removePhoto)) {
+            Storage::disk('public')->delete($oldPhoto);
+        }
 
         User::query()
             ->where('role', 'admin')
