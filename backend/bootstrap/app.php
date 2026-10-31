@@ -10,6 +10,7 @@ use Illuminate\Auth\AuthenticationException;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -65,6 +66,17 @@ return Application::configure(basePath: dirname(__DIR__))
                 'success' => false,
                 'message' => 'العنصر المطلوب غير موجود',
             ], 404);
+        });
+
+        $exceptions->render(function (MethodNotAllowedHttpException $exception, Request $request) {
+            if (! $request->is('api/*')) {
+                return null;
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'طريقة الطلب غير مسموح بها لهذا المسار',
+            ], 405);
         });
 
         $exceptions->render(function (NotFoundHttpException $exception, Request $request) {
