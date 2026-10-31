@@ -32,6 +32,7 @@ class NotificationController extends Controller
 
         $notifications = Notification::query()
             ->where('user_id', $request->user()->id)
+            ->whereJsonContains('channels', 'in_app')
             ->when(
                 $validated['unread_only'] ?? false,
                 fn ($query) => $query->whereNull('read_at')
@@ -45,6 +46,7 @@ class NotificationController extends Controller
 
         $unreadCount = Notification::query()
             ->where('user_id', $request->user()->id)
+            ->whereJsonContains('channels', 'in_app')
             ->whereNull('read_at')
             ->count();
 
@@ -63,6 +65,7 @@ class NotificationController extends Controller
     ): JsonResponse {
         $notificationModel = Notification::query()
             ->where('user_id', $request->user()->id)
+            ->whereJsonContains('channels', 'in_app')
             ->findOrFail($notification);
 
         if ($notificationModel->read_at === null) {
@@ -84,6 +87,7 @@ class NotificationController extends Controller
     {
         $updated = Notification::query()
             ->where('user_id', $request->user()->id)
+            ->whereJsonContains('channels', 'in_app')
             ->whereNull('read_at')
             ->update([
                 'read_at' => now(),
