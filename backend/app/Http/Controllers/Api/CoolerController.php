@@ -124,19 +124,31 @@ class CoolerController extends Controller
             );
         }
 
-        $cooler = $user->coolers()->create([
-            ...$validated,
-            'photo' => $photoPath,
-            'status' => 'unknown',
-            'health_score' => null,
-            'is_active' => true,
-        ]);
+        try {
+            $cooler = DB::transaction(function () use ($user, $validated, $photoPath) {
+                $created = $user->coolers()->create([
+                    ...$validated,
+                    'photo' => $photoPath,
+                    'status' => 'unknown',
+                    'health_score' => null,
+                    'is_active' => true,
+                ]);
 
-        $cooler->approval_status = 'pending_review';
-        $cooler->rejection_reason = null;
-        $cooler->reviewed_at = null;
-        $cooler->reviewed_by_user_id = null;
-        $cooler->save();
+                $created->approval_status = 'pending_review';
+                $created->rejection_reason = null;
+                $created->reviewed_at = null;
+                $created->reviewed_by_user_id = null;
+                $created->save();
+
+                return $created;
+            });
+        } catch (Throwable $exception) {
+            if ($photoPath) {
+                Storage::disk('public')->delete($photoPath);
+            }
+
+            throw $exception;
+        }
 
         Notification::query()->create([
             'user_id' => $user->id,
