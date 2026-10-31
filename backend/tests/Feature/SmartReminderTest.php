@@ -14,6 +14,7 @@ class SmartReminderTest extends TestCase
 
     public function test_scheduled_reminders_are_saved_once_and_respect_smart_alert_preference(): void
     {
+        config()->set('numayr.smart_reminders_enabled', true);
         $customer = User::factory()->create([
             'role' => 'customer', 'is_active' => true, 'phone' => '0501234567',
         ]);
@@ -52,6 +53,7 @@ class SmartReminderTest extends TestCase
 
     public function test_sms_only_alerts_are_not_displayed_as_in_app_unread(): void
     {
+        config()->set('numayr.smart_reminders_enabled', true);
         $customer = User::factory()->create([
             'role' => 'customer', 'is_active' => true, 'phone' => '0501234567',
         ]);

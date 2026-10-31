@@ -16,6 +16,10 @@ class SendCoolerSmartReminders extends Command
 {
     public function handle(NotificationService $notifications): int
     {
+        if (! config('numayr.smart_reminders_enabled', false)) {
+            $this->info('Smart reminders remain disabled until business policy is approved.');
+            return self::SUCCESS;
+        }
         $today = now();
         $repeatDays = (int) config('numayr.repeat_days', 30);
         $filterDays = (int) config('numayr.filter_reminder_days', 180);
