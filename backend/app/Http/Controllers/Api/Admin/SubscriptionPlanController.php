@@ -53,7 +53,7 @@ class SubscriptionPlanController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Subscription plan updated successfully',
+            'message' => 'تم تحديث باقة الاشتراك بنجاح',
             'data' => ['plan' => $subscriptionPlan->fresh()],
         ]);
     }
