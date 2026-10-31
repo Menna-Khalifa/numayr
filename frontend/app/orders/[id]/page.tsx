@@ -1,7 +1,7 @@
 "use client";
 
 import AppShell from "@/components/app/AppShell";
-import { ApiError, apiRequest } from "@/lib/api";
+import { API_URL, ApiError, apiRequest } from "@/lib/api";
 import { getAuthToken, removeAuthToken } from "@/lib/auth";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -121,6 +121,7 @@ export default function OrderDetailsPage() {
   const [cancelOpen, setCancelOpen] = useState(false);
   const [quoteBusy, setQuoteBusy] = useState(false);
   const [quoteMessage, setQuoteMessage] = useState("");
+  const [attachmentUrls, setAttachmentUrls] = useState<Record<number, string>>({});
 
   useEffect(() => {
     const token = getAuthToken();
@@ -166,6 +167,38 @@ export default function OrderDetailsPage() {
 
     void loadOrder();
   }, [params.id, router]);
+
+  useEffect(() => {
+    const attachments = order?.attachments ?? [];
+    const token = getAuthToken();
+    if (!token || !attachments.length) return;
+
+    let cancelled = false;
+    const createdUrls: string[] = [];
+    setAttachmentUrls({});
+
+    void Promise.all(attachments.map(async (attachment) => {
+      try {
+        const response = await fetch(`${API_URL}/order-attachments/${attachment.id}`, {
+          headers: { Authorization: `Bearer ${token}`, Accept: "image/*" },
+        });
+        if (!response.ok) return;
+        const blob = await response.blob();
+        if (!blob.type.startsWith("image/")) return;
+        if (cancelled) return;
+        const url = URL.createObjectURL(blob);
+        createdUrls.push(url);
+        setAttachmentUrls((current) => ({ ...current, [attachment.id]: url }));
+      } catch {
+        // Keep the unavailable-image placeholder; never expose protected URLs.
+      }
+    }));
+
+    return () => {
+      cancelled = true;
+      createdUrls.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [order?.attachments]);
 
   async function decideQuote(action: "approve" | "reject") {
     const token = getAuthToken();
@@ -475,9 +508,9 @@ export default function OrderDetailsPage() {
                       key={attachment.id}
                       className="flex aspect-square items-center justify-center overflow-hidden rounded-[18px] border border-[#dce8ec] bg-[#f6fafb]"
                     >
-                      {attachment.url ? (
+                      {attachmentUrls[attachment.id] ? (
                         <img
-                          src={attachment.url}
+                          src={attachmentUrls[attachment.id]}
                           alt={attachment.original_name}
                           className="h-full w-full object-cover"
                         />
@@ -545,10 +578,8 @@ export default function OrderDetailsPage() {
                 ) : (
                   <>
                     <SummaryRow
-                      label="قبل الضريبة"
-                      value={`${Number(order.subtotal).toFixed(
-                        2
-                      )} ر.س`}
+                      label="الخدمة قبل رسوم الاستعجال والضريبة"
+                      value={`${Math.max(0, Number(order.subtotal) - Number(order.urgent_fee || 0)).toFixed(2)} ر.س`}
                     />
 
                     <SummaryRow
