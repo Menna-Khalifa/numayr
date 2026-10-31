@@ -26,6 +26,11 @@ class SmsService
             return;
         }
 
+        if ($driver === 'authentica') {
+            app(AuthenticaOtpSender::class)->sendSms($phone, $message);
+            return;
+        }
+
         throw new RuntimeException(
             "Unsupported SMS driver: {$driver}"
         );
