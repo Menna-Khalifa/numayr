@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Throwable;
 
 class CoolerController extends Controller
@@ -407,6 +408,25 @@ class CoolerController extends Controller
         $coolerModel = $request->user()
             ->coolers()
             ->findOrFail($cooler);
+
+        if (DB::table('orders')
+            ->where('cooler_id', $coolerModel->id)
+            ->whereIn('status', ['pending', 'confirmed', 'in_progress'])
+            ->exists()) {
+            throw ValidationException::withMessages([
+                'cooler' => ['لا يمكن حذف برادة مرتبطة بطلب غير مكتمل. أكمل الطلب أو ألغِه أولًا.'],
+            ]);
+        }
+
+        if (DB::table('subscription_cooler')
+            ->join('subscriptions', 'subscriptions.id', '=', 'subscription_cooler.subscription_id')
+            ->where('subscription_cooler.cooler_id', $coolerModel->id)
+            ->whereIn('subscriptions.status', ['pending', 'active'])
+            ->exists()) {
+            throw ValidationException::withMessages([
+                'cooler' => ['لا يمكن حذف برادة مرتبطة باشتراك قائم أو قيد التفعيل.'],
+            ]);
+        }
 
         $photoPath = $coolerModel->photo;
 
