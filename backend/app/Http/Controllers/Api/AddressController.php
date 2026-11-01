@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class AddressController extends Controller
 {
@@ -117,6 +118,20 @@ class AddressController extends Controller
             ->findOrFail($address);
 
         DB::transaction(function () use ($request, $addressModel) {
+            // The cooler/subscription tables use nullOnDelete. Without this guard,
+            // deleting a saved address silently detaches live service records.
+            if (DB::table('coolers')->where('address_id', $addressModel->id)->exists()) {
+                throw ValidationException::withMessages([
+                    'address' => ['العنوان مرتبط ببرادة. انقل البرادة إلى عنوان آخر قبل الحذف.'],
+                ]);
+            }
+
+            if (DB::table('subscriptions')->where('address_id', $addressModel->id)->exists()) {
+                throw ValidationException::withMessages([
+                    'address' => ['العنوان مرتبط باشتراك ولا يمكن حذفه حفاظًا على بيانات الاشتراك.'],
+                ]);
+            }
+
             $wasDefault = $addressModel->is_default;
 
             $addressModel->delete();
