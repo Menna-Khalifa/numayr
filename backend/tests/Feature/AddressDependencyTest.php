@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Models\Subscription;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -31,7 +32,8 @@ class AddressDependencyTest extends TestCase
     {
         $user = User::factory()->create(['role' => 'customer']);
         $address = $user->addresses()->create(['city' => 'Riyadh']);
-        $user->hasMany(\App\Models\Subscription::class)->create([
+        Subscription::query()->create([
+            'user_id' => $user->id,
             'address_id' => $address->id,
             'plan_code' => 'peace_of_mind',
             'plan_name_ar' => 'راحة البال',
