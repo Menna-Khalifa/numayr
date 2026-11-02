@@ -35,6 +35,21 @@ class PaymentController extends Controller
                 ]),
             ],
         ]);
+        // Reject unavailable gateways before persisting any payment attempt.
+        $provider = config('payments.default');
+        if (! is_string($provider) || trim($provider) === '') {
+            throw ValidationException::withMessages([
+                'payment' => ['الدفع الإلكتروني غير متاح حاليًا'],
+            ]);
+        }
+        try {
+            $gateway = $gatewayManager->driver($provider);
+        } catch (\RuntimeException|\InvalidArgumentException $exception) {
+            throw ValidationException::withMessages([
+                'payment' => ['الدفع الإلكتروني غير متاح حاليًا'],
+            ]);
+        }
+
         $result = DB::transaction(function () use (
             $user,
             $order,
@@ -119,14 +134,7 @@ class PaymentController extends Controller
                 ],
             ]);
         }
-        $provider = config('payments.default');
-        if (! is_string($provider) || $provider === '') {
-            throw new RuntimeException(
-                'Payment provider is not configured.'
-            );
-        }
         try {
-            $gateway = $gatewayManager->driver($provider);
             $gatewayResult = $gateway->createPayment($payment);
         } catch (Throwable $exception) {
             DB::transaction(function () use (

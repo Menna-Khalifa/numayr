@@ -24,6 +24,28 @@ class PaymentFlowTest extends TestCase
         Config::set('payments.default', 'fake');
     }
 
+    public function test_unavailable_fake_gateway_in_production_does_not_create_payment(): void
+    {
+        $previousEnvironment = app()->environment();
+        try {
+            app()->detectEnvironment(fn () => 'production');
+            $user = User::factory()->create();
+            $order = $this->createOrder($user);
+            Sanctum::actingAs($user);
+
+            $this->postJson("/api/v1/orders/{$order->id}/payments", [
+                'method' => 'card',
+            ])
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors('payment')
+                ->assertJsonPath('errors.payment.0', 'الدفع الإلكتروني غير متاح حاليًا');
+
+            $this->assertDatabaseCount('payments', 0);
+        } finally {
+            app()->detectEnvironment(fn () => $previousEnvironment);
+        }
+    }
+
     public function test_customer_can_create_payment_attempt_for_owned_order(): void
     {
         $user = User::factory()->create();
