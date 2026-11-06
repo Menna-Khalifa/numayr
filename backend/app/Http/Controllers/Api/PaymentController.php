@@ -121,6 +121,14 @@ class PaymentController extends Controller
             ];
         });
         $payment = $result['payment'];
+        // A second checkout request must never start another Moyasar intent
+        // for the same pending payment while the first request is in flight.
+        if (! $result['created'] && ! $payment->provider_reference) {
+            return response()->json([
+                'success' => false,
+                'message' => 'هناك محاولة دفع أخرى قيد التجهيز. يرجى مراجعة حالة الطلب قبل إعادة المحاولة.',
+            ], 409);
+        }
         if (
             ! $result['created']
             && $payment->provider_reference
