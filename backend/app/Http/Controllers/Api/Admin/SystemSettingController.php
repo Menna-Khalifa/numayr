@@ -46,15 +46,7 @@ $setting = SystemSetting::query()
                     'required',
                     'string',
                     'size:3',
-                    Rule::in([
-                        'SAR',
-                        'USD',
-                        'AED',
-                        'KWD',
-                        'BHD',
-                        'QAR',
-                        'OMR',
-                    ]),
+                    Rule::in(['SAR']),
                 ],
             ]),
 
