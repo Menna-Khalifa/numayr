@@ -14,7 +14,7 @@ function PaymentReturnContent() {
   const reference = params.get("id");
   const [orderId, setOrderId] = useState<string | null>(null);
   const [subscriptionId, setSubscriptionId] = useState<string | null>(null);
-  const [state, setState] = useState<"verifying" | "paid" | "pending" | "error">("verifying");
+  const [state, setState] = useState<"verifying" | "paid" | "failed" | "pending" | "error">("verifying");
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -43,7 +43,7 @@ function PaymentReturnContent() {
     })
       .then((response) => {
         if (!active) return;
-        setState(response.data.status === "paid" ? "paid" : "pending");
+        setState(response.data.status === "paid" ? "paid" : response.data.status === "failed" ? "failed" : "pending");
         if (response.data.status === "paid") {
           sessionStorage.removeItem("numayr-moyasar-return-order");
           sessionStorage.removeItem("numayr-moyasar-return-subscription");
@@ -60,11 +60,14 @@ function PaymentReturnContent() {
 
   const title = state === "paid" ? "تم تأكيد الدفع" :
     state === "verifying" ? "جاري التحقق من الدفع لدى ميسر" :
+    state === "failed" ? "لم تنجح عملية الدفع" :
     state === "pending" ? "الدفع لم يتأكد بعد" : "تعذر التحقق من نتيجة الدفع";
   const description = state === "paid" ?
     "تم التحقق من العملية لدى ميسر وتحديث حالة الدفع." :
     state === "verifying" ?
     "يرجى عدم إجراء عملية دفع أخرى أثناء التحقق." :
+    state === "failed" ?
+    "أكدت ميسر فشل هذه المحاولة. لم يتم تسجيل الطلب كمدفوع، ويمكنك مراجعة تفاصيل الطلب قبل المحاولة مجددًا." :
     message || "راجع تفاصيل الطلب. لا تعتمد على نتيجة الرابط وحدها.";
 
   return (
