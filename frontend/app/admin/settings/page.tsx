@@ -184,7 +184,7 @@ export default function AdminSettingsPage() {
             <p className="text-[12px] font-extrabold text-[#0d2b4e]">{item.key==="tax_rate"?"نسبة الضريبة":item.key==="currency"?"العملة":item.key}</p>
             {item.key==="currency"?
               <select value={drafts[item.key]??""} onChange={e=>setDrafts(c=>({...c,[item.key]:e.target.value}))} className="mt-4 h-12 w-full rounded-[15px] border border-[#dce9ed] bg-white px-4 text-xs font-extrabold">
-                {["SAR","USD","AED","KWD","BHD","QAR","OMR"].map(x=><option key={x}>{x}</option>)}
+                {["SAR"].map(x=><option key={x}>{x}</option>)}
               </select>
               :<input type="number" value={drafts[item.key]??""} onChange={e=>setDrafts(c=>({...c,[item.key]:e.target.value}))} className="mt-4 h-12 w-full rounded-[15px] border border-[#dce9ed] bg-white px-4 text-xs font-bold"/>
             }
@@ -237,7 +237,7 @@ export default function AdminSettingsPage() {
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           <Field label="الاسم بالعربية" value={editing.name_ar} onChange={v=>setEditing(c=>c?{...c,name_ar:v}:c)}/>
           <Field label="الاسم بالإنجليزية" value={editing.name_en} onChange={v=>setEditing(c=>c?{...c,name_en:v}:c)}/>
-          <Field label="السعر" type="number" value={String(editing.price)} onChange={v=>setEditing(c=>c?{...c,price:v}:c)}/>
+          <Field label="السعر (ريال سعودي، بحد أدنى 1)" type="number" value={String(editing.price)} onChange={v=>setEditing(c=>c?{...c,price:v}:c)}/>
           <Field label="نسبة التوفير" type="number" value={String(editing.savings_percent??"")} onChange={v=>setEditing(c=>c?{...c,savings_percent:v===""?null:v}:c)}/>
           <Field label="الفحوص السنوية" type="number" value={String(editing.benefits?.annual_inspections||0)} onChange={v=>setEditing(c=>c?{...c,benefits:{...c.benefits,annual_inspections:Number(v)}}:c)}/>
           <Field label="تغييرات الفلاتر" type="number" value={String(editing.benefits?.included_filter_changes||0)} onChange={v=>setEditing(c=>c?{...c,benefits:{...c.benefits,included_filter_changes:Number(v)}}:c)}/>
