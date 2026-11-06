@@ -64,6 +64,26 @@ class MoyasarGateway implements PaymentGateway
 
     public function createPayment(Payment $payment): array
     {
+        $mode = config('services.moyasar.mode', 'test');
+        $publishableKey = config('services.moyasar.publishable_key');
+        $expectedPrefix = $mode === 'live' ? 'pk_live_' : 'pk_test_';
+        if (! in_array($mode, ['test', 'live'], true)
+            || ! is_string($publishableKey)
+            || ! str_starts_with($publishableKey, $expectedPrefix)) {
+            throw new RuntimeException(
+                'Moyasar publishable key is missing or does not match payment mode.'
+            );
+        }
+
+        // Live checkouts need authenticated asynchronous confirmation if the
+        // customer closes the browser before returning from 3-D Secure.
+        if ($mode === 'live'
+            && ! filled(config('services.moyasar.webhook_secret'))) {
+            throw new RuntimeException(
+                'Live Moyasar payments require a configured webhook secret.'
+            );
+        }
+
         $callbackUrl = config('services.moyasar.callback_url');
 
         if (!is_string($callbackUrl) ||
