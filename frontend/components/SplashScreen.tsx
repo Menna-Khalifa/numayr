@@ -44,7 +44,7 @@ const rays = [
 
 const headline = ["عناية", "تستحقها", "برادتك"];
 
-export default function SplashScreen() {
+export default function SplashScreen({ onComplete }: { onComplete?: () => void }) {
   const router = useRouter();
 
   /* ---------- pointer parallax ---------- */
@@ -84,14 +84,18 @@ export default function SplashScreen() {
     });
 
     const redirectTimer = window.setTimeout(() => {
-      router.replace("/role");
+      if (onComplete) {
+        onComplete();
+      } else {
+        router.replace("/role");
+      }
     }, 3800);
 
     return () => {
       controls.stop();
       window.clearTimeout(redirectTimer);
     };
-  }, [progress, router]);
+  }, [progress, router, onComplete]);
 
   return (
     <MotionConfig reducedMotion="user">
