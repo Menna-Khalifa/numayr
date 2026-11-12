@@ -167,16 +167,29 @@ export default function PublicLanding({ servicesPage = false }: { servicesPage?:
       </header>
 
       <main>
-        <section className="relative isolate overflow-hidden bg-[#081f36] text-white">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_80%_15%,rgba(22,166,201,.23),transparent_35%),radial-gradient(circle_at_12%_75%,rgba(56,166,194,.15),transparent_38%)]" />
+        <section className="relative isolate overflow-hidden bg-[#071b33] text-white">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_82%_22%,rgba(59,158,188,.43),transparent_42%),radial-gradient(ellipse_at_13%_67%,rgba(24,129,171,.36),transparent_43%),linear-gradient(135deg,#06162d_0%,#0b3855_49%,#061b33_100%)]" />
+
+          {/* Atmospheric lighting, refracted water and drifting particles */}
+          <motion.div aria-hidden="true" className="pointer-events-none absolute -right-[18%] -top-[42%] h-[850px] w-[850px] rounded-full bg-[#5ca5b9]/20 blur-[125px]" animate={reduced ? undefined : { x: [0,-70,25,0], y: [0,35,-35,0], scale: [1,1.2,1] }} transition={{ duration: 16, repeat: Infinity, ease: "easeInOut" }} />
+          <motion.div aria-hidden="true" className="pointer-events-none absolute -bottom-[32%] left-[1%] h-[620px] w-[700px] rounded-full bg-[#5d9cce]/20 blur-[110px]" animate={reduced ? undefined : { x: [0,70,-30,0], scale: [1,1.1,1] }} transition={{ duration: 19, repeat: Infinity, ease: "easeInOut" }} />
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0 opacity-[.16]" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,.12) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.12) 1px,transparent 1px)", backgroundSize: "88px 88px", maskImage: "linear-gradient(to bottom,transparent,black 30%,transparent)" }} />
+          <motion.div aria-hidden="true" className="pointer-events-none absolute -bottom-48 left-[-15%] h-[350px] w-[130%] rounded-[50%] border-t border-[#a9dce3]/30 bg-[#3e8caa]/10 blur-[2px]" animate={reduced ? undefined : { y: [0,-30,0], rotate: [-2,1,-2] }} transition={{ duration: 9, repeat: Infinity, ease: "easeInOut" }} />
+          <motion.div aria-hidden="true" className="pointer-events-none absolute -bottom-56 left-[-7%] h-[320px] w-[115%] rounded-[50%] border-t border-white/10 bg-[#62b2bc]/10" animate={reduced ? undefined : { y: [0,24,0], rotate: [2,-1,2] }} transition={{ duration: 11, repeat: Infinity, ease: "easeInOut" }} />
+          {Array.from({ length: 14 }, (_, index) => {
+            const x = (index * 23 + 9) % 96;
+            const y = (index * 17 + 11) % 85;
+            const size = 3 + (index % 4) * 3;
+            return <motion.span key={index} aria-hidden="true" className="pointer-events-none absolute rounded-full border border-white/25 bg-[#b4f1f4]/25" style={{ left: x + "%", top: y + "%", width: size, height: size }} animate={reduced ? undefined : { y: [0,-45,0], opacity: [.1,.75,.1], scale: [.7,1.4,.7] }} transition={{ duration: 5 + index % 5, delay: index * .36, repeat: Infinity, ease: "easeInOut" }} />;
+          })}
           <motion.div aria-hidden="true" className="pointer-events-none absolute -left-24 top-10 h-[360px] w-[360px] rounded-full border border-[#6ae4f4]/10 sm:h-[560px] sm:w-[560px]" animate={reduced ? undefined : { rotate: 360 }} transition={{ duration: 80, repeat: Infinity, ease: "linear" }} />
           <motion.div aria-hidden="true" className="pointer-events-none absolute -left-8 top-28 h-[260px] w-[260px] rounded-full border border-[#6ae4f4]/15 sm:h-[430px] sm:w-[430px]" animate={reduced ? undefined : { rotate: -360 }} transition={{ duration: 65, repeat: Infinity, ease: "linear" }} />
-          <div className="relative mx-auto grid min-h-[calc(100svh-84px)] max-w-7xl items-center gap-12 px-5 py-24 sm:px-8 lg:min-h-[800px] lg:grid-cols-[1.04fr_.96fr] lg:py-32">
+          <div className="relative mx-auto grid min-h-[860px] max-w-7xl items-center gap-12 px-5 pb-32 pt-28 sm:min-h-[900px] sm:px-8 lg:min-h-[970px] lg:grid-cols-[1.05fr_.95fr] lg:pb-36 lg:pt-32">
             <div className="relative z-10">
               <Reveal><span className="inline-flex items-center gap-2 rounded-full border border-[#91cbd5]/25 bg-white/5 px-4 py-2 text-xs font-bold text-[#a8d7de]"><Sparkles size={16} aria-hidden="true" /> منصة نمير لخدمات البرادات والمياه</span></Reveal>
               <Reveal delay={0.1}>
-                <h1 className="mt-7 max-w-3xl text-4xl font-extrabold leading-[1.45] tracking-tight sm:text-5xl lg:text-[60px]">
-                  {servicesPage ? "الخدمات التي تحتاجها" : "عناية تستحقها"} <span className="block text-[#91cbd5]">{servicesPage ? "لبرادتك في مكان واحد" : "برادتك"}</span>
+                <h1 className="mt-8 max-w-3xl text-[42px] font-extrabold leading-[1.4] tracking-tight sm:text-[58px] lg:text-[72px]">
+                  {servicesPage ? "الخدمات التي تحتاجها" : "عناية تستحقها"} <span className="block bg-gradient-to-l from-[#e8fafc] via-[#8fd4df] to-[#5aaac8] bg-clip-text text-transparent">{servicesPage ? "لبرادتك في مكان واحد" : "برادتك"}</span>
                 </h1>
               </Reveal>
               <Reveal delay={0.2}><p className="mt-6 max-w-xl text-base leading-9 text-[#c5e2e9] sm:text-lg">{servicesPage ? "استكشف خدمات تعبئة المياه والصيانة وتغيير الفلاتر، واطلع على طريقة طلب كل خدمة قبل تسجيل الدخول." : "من طلب تعبئة المياه إلى خدمات الصيانة وتغيير الفلاتر، تساعدك نمير على إدارة احتياجات برادتك ومتابعة الطلبات من مكان واحد."}</p></Reveal>
@@ -195,16 +208,16 @@ export default function PublicLanding({ servicesPage = false }: { servicesPage?:
                 ))}
               </Reveal>
             </div>
-            <Reveal delay={0.2} className="mx-auto w-full max-w-[490px]">
-              <motion.div animate={reduced ? undefined : { y: [0, -13, 0] }} transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }} className="relative mx-auto flex aspect-square w-full items-center justify-center rounded-[52px] border border-white/10 bg-[radial-gradient(circle_at_50%_45%,rgba(110,163,171,.15),rgba(14,66,103,.55)_55%,rgba(9,35,58,.25)_75%)] shadow-[0_35px_110px_rgba(0,0,0,.18)]">
-                <div className="absolute inset-[13%] rounded-full border border-[#88edfa]/20" />
-                <div className="absolute inset-[24%] rounded-full border border-[#88edfa]/15" /><div className="absolute inset-[19%] rounded-full bg-gradient-to-br from-white via-[#f8fcfd] to-[#d7ebef] shadow-[0_18px_70px_rgba(0,0,0,.25)]" />
-                <Image src={logo} alt="شعار نمير" width={300} height={300} priority className="relative z-10 h-auto w-[56%] object-contain" />
-                <span className="absolute bottom-[10%] rounded-full border border-white/15 bg-[#0c3554]/80 px-4 py-2 text-xs font-bold text-[#c9f2f8]">خدمات موثوقة · متابعة سهلة</span>
+            <Reveal delay={0.2} className="mx-auto w-full max-w-[520px]">
+              <motion.div animate={reduced ? undefined : { y: [0, -13, 0] }} transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }} className="relative mx-auto flex aspect-square w-full items-center justify-center rounded-[52px] border border-[#caeef4]/20 bg-[radial-gradient(circle_at_50%_45%,rgba(110,163,171,.15),rgba(14,66,103,.55)_55%,rgba(9,35,58,.25)_75%)] shadow-[0_35px_110px_rgba(0,0,0,.18)]">
+                <motion.div className="absolute -inset-[9%] rounded-full border border-[#a9dce3]/10" animate={reduced ? undefined : { rotate: 360 }} transition={{ duration: 55, repeat: Infinity, ease: "linear" }} /><motion.div className="absolute inset-[4%] rounded-full border border-dashed border-[#92c7d4]/30" animate={reduced ? undefined : { rotate: -360 }} transition={{ duration: 70, repeat: Infinity, ease: "linear" }} /><div className="absolute inset-[13%] rounded-full border border-[#88edfa]/20" />
+                <motion.div className="absolute inset-[12%] rounded-full bg-[#88c9d7]/10 blur-2xl" animate={reduced ? undefined : { scale: [1,1.18,1], opacity: [.35,.85,.35] }} transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }} /><div className="absolute inset-[24%] rounded-full border border-[#88edfa]/15" /><div className="absolute inset-[19%] rounded-full bg-gradient-to-br from-white via-[#f8fcfd] to-[#d7ebef] shadow-[0_18px_70px_rgba(0,0,0,.25)]" />
+                <Image src={logo} alt="شعار نمير" width={300} height={300} priority className="relative z-10 h-auto w-[56%] object-contain drop-shadow-[0_12px_20px_rgba(0,0,0,.08)]" />
+                <span className="absolute bottom-[6%] rounded-full border border-white/20 bg-[#0c3554]/90 px-4 py-2 text-xs font-bold text-[#c9f2f8]">خدمات موثوقة · متابعة سهلة</span>
               </motion.div>
             </Reveal>
           </div>
-          <Link href={servicesPage ? "#service-list" : "#home-services"} aria-label="الانتقال إلى الخدمات" className="absolute bottom-5 left-1/2 -translate-x-1/2 text-[#9bdbe6] transition-transform hover:translate-y-1"><ChevronDown size={25} aria-hidden="true" /></Link>
+          <Link href={servicesPage ? "#service-list" : "#home-services"} aria-label="الانتقال إلى الخدمات" className="absolute bottom-8 left-1/2 -translate-x-1/2 text-[#d0eff4] transition-transform hover:translate-y-1"><ChevronDown size={25} aria-hidden="true" /></Link>
         </section>
 
 
