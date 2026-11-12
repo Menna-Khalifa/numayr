@@ -1,7 +1,7 @@
 "use client";
 
-import { motion, useReducedMotion } from "framer-motion";
-import { ArrowLeft, ArrowUpLeft, CheckCircle2, ChevronDown, Droplets, Filter, Menu, ShieldCheck, Sparkles, Wrench, X } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { ArrowLeft, ArrowUpLeft, CheckCircle2, ChevronDown, ChevronUp, Droplets, Filter, Menu, ShieldCheck, Sparkles, Wrench, X, ClipboardCheck, CreditCard, ListChecks, HelpCircle, ArrowDown, Waves, CircleCheck, BadgeCheck } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -45,6 +45,26 @@ const steps = [
   { title: "أنشئ حسابك", body: "سجّل دخولك أو أنشئ حسابًا للوصول إلى خدمات برادتك." },
   { title: "اختر الخدمة", body: "اختر نوع الخدمة وحدد تفاصيل الطلب والكمية عند الحاجة." },
   { title: "راجع الطلب", body: "تابع حالة الطلب وراجع السعر المعتمد قبل الدفع." },
+];
+
+
+const highlights = [
+  { icon: Droplets, title: "تعبئة مياه التحلية", description: "حدد كمية المياه المناسبة لبرادتك" },
+  { icon: Wrench, title: "الصيانة والفحص", description: "وصف العطل وطلب عرض الخدمة" },
+  { icon: Filter, title: "خدمات الفلاتر", description: "اختيارات للتغيير والفحص والتنظيف" },
+];
+
+const paymentSteps = [
+  { icon: ListChecks, title: "تفاصيل الطلب", description: "تبدأ باختيار الخدمة وتحديد البرادة والتفاصيل المطلوبة من داخل حسابك" },
+  { icon: ClipboardCheck, title: "مراجعة السعر", description: "تظهر تكلفة الخدمة بحسب نوعها وبيانات الطلب أو بعد مراجعة عرض السعر" },
+  { icon: CreditCard, title: "الدفع والمتابعة", description: "عند إتاحة الدفع الإلكتروني يمكنك إتمام الدفع من صفحة الطلب ومتابعة حالته" },
+];
+
+const commonQuestions = [
+  { q: "هل يمكن تصفح الخدمات بدون حساب؟", a: "نعم يمكن استعراض الخدمات والتعرف على طريقة الطلب من هذه الصفحة بدون تسجيل الدخول. إنشاء الطلب ومتابعته يتطلبان الدخول إلى حسابك." },
+  { q: "كيف يتم تحديد سعر الخدمة؟", a: "تعبئة المياه تعتمد على كمية المياه المختارة. أما الصيانة فيتم تحديد سعرها وفق مراجعة الطلب، وخدمات الفلاتر لها خيارات وأسعار تظهر عند اختيار الخدمة داخل الحساب." },
+  { q: "هل يتم الدفع قبل اعتماد طلب الصيانة؟", a: "في طلبات الصيانة التي تتطلب عرض سعر، تتم مراجعة تفاصيل الطلب والسعر والموافقة عليه قبل إتاحة الدفع." },
+  { q: "كيف يمكنني متابعة طلب سابق؟", a: "بعد تسجيل الدخول إلى حسابك يمكنك الوصول إلى الطلبات ومتابعة الحالة والفواتير المتاحة من لوحة المستخدم." },
 ];
 
 const transition = { duration: 0.68, ease: [0.16, 1, 0.3, 1] as [number, number, number, number] };
@@ -100,6 +120,7 @@ function ServiceGrid() {
 
 export default function PublicLanding({ servicesPage = false }: { servicesPage?: boolean }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [activeFaq, setActiveFaq] = useState<number | null>(0);
   const reduced = useReducedMotion();
 
   useEffect(() => {
@@ -110,33 +131,35 @@ export default function PublicLanding({ servicesPage = false }: { servicesPage?:
   }, []);
 
   return (
-    <div dir="rtl" className="min-h-screen scroll-smooth overflow-x-hidden bg-[#f0f8fa] text-[#0d2b4e]">
-      <header className="relative z-30 border-b border-white/10 bg-[#081f36] text-white">
+    <div id="top" dir="rtl" className="min-h-screen scroll-smooth overflow-x-hidden bg-[#f0f8fa] text-[#0d2b4e]">
+      <header className="sticky top-0 z-30 border-b border-white/10 bg-[#081f36]/95 text-white shadow-[0_8px_30px_rgba(4,22,40,.12)] backdrop-blur-xl">
         <nav aria-label="التنقل الرئيسي" className="mx-auto flex h-[84px] w-full max-w-7xl items-center justify-between gap-4 px-5 sm:px-8">
-          <Link href="/" aria-label="نمير الصفحة الرئيسية" className="flex items-center gap-3">
+          <Link href={servicesPage ? "/" : "#top"} aria-label="نمير الصفحة الرئيسية" className="flex items-center gap-3">
             <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/95">
               <Image src={logo} alt="" width={45} height={45} className="h-10 w-10 object-contain" />
             </span>
             <span className="text-xl font-extrabold tracking-tight">نمير <span className="text-[#91cbd5]">NUMAYR</span></span>
           </Link>
-          <div className="hidden items-center gap-8 text-sm font-bold text-[#cfebf3] md:flex">
-            <Link className="transition-colors hover:text-white" href="/">الرئيسية</Link>
+          <div className="hidden items-center gap-6 text-sm font-bold text-[#cfebf3] lg:flex">
+            <Link className="transition-colors hover:text-white" href={servicesPage ? "/" : "#top"}>الرئيسية</Link>
             <Link className="transition-colors hover:text-white" href={servicesPage ? "#service-list" : "#home-services"}>استعراض الخدمات</Link>
             <Link className="transition-colors hover:text-white" href="#how-it-works">كيف تعمل نمير</Link>
+            <Link className="transition-colors hover:text-white" href="#pricing-process">الدفع والتسعير</Link>
           </div>
-          <Link href="/role" className="hidden min-h-11 items-center gap-2 rounded-full bg-[#79bfca] px-6 text-sm font-extrabold text-[#07263c] transition-all hover:-translate-y-0.5 hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-4 md:inline-flex">
+          <Link href="/role" className="hidden min-h-11 items-center gap-2 rounded-full bg-[#79bfca] px-6 text-sm font-extrabold text-[#07263c] transition-all hover:-translate-y-0.5 hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-4 lg:inline-flex">
             تسجيل الدخول <ArrowUpLeft size={16} aria-hidden="true" />
           </Link>
-          <button type="button" aria-label={menuOpen ? "إغلاق القائمة" : "فتح القائمة"} aria-expanded={menuOpen} aria-controls="public-mobile-navigation" onClick={() => setMenuOpen(!menuOpen)} className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/20 md:hidden">
+          <button type="button" aria-label={menuOpen ? "إغلاق القائمة" : "فتح القائمة"} aria-expanded={menuOpen} aria-controls="public-mobile-navigation" onClick={() => setMenuOpen(!menuOpen)} className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/20 lg:hidden">
             {menuOpen ? <X size={22} /> : <Menu size={22} />}
           </button>
         </nav>
         {menuOpen && (
-          <div id="public-mobile-navigation" className="border-t border-white/10 bg-[#0b2b49] px-6 py-5 md:hidden">
+          <div id="public-mobile-navigation" className="border-t border-white/10 bg-[#0b2b49] px-6 py-5 lg:hidden">
             <div className="flex flex-col gap-5 text-sm font-bold">
-              <Link onClick={() => setMenuOpen(false)} href="/">الرئيسية</Link>
+              <Link onClick={() => setMenuOpen(false)} href={servicesPage ? "/" : "#top"}>الرئيسية</Link>
               <Link onClick={() => setMenuOpen(false)} href={servicesPage ? "#service-list" : "#home-services"}>استعراض الخدمات</Link>
               <Link onClick={() => setMenuOpen(false)} href="#how-it-works">كيف تعمل نمير</Link>
+              <Link onClick={() => setMenuOpen(false)} href="#pricing-process">الدفع والتسعير</Link>
               <Link onClick={() => setMenuOpen(false)} className="text-[#91cbd5]" href="/role">تسجيل الدخول</Link>
             </div>
           </div>
@@ -148,7 +171,7 @@ export default function PublicLanding({ servicesPage = false }: { servicesPage?:
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_80%_15%,rgba(22,166,201,.23),transparent_35%),radial-gradient(circle_at_12%_75%,rgba(56,166,194,.15),transparent_38%)]" />
           <motion.div aria-hidden="true" className="pointer-events-none absolute -left-24 top-10 h-[360px] w-[360px] rounded-full border border-[#6ae4f4]/10 sm:h-[560px] sm:w-[560px]" animate={reduced ? undefined : { rotate: 360 }} transition={{ duration: 80, repeat: Infinity, ease: "linear" }} />
           <motion.div aria-hidden="true" className="pointer-events-none absolute -left-8 top-28 h-[260px] w-[260px] rounded-full border border-[#6ae4f4]/15 sm:h-[430px] sm:w-[430px]" animate={reduced ? undefined : { rotate: -360 }} transition={{ duration: 65, repeat: Infinity, ease: "linear" }} />
-          <div className="relative mx-auto grid min-h-[570px] max-w-7xl items-center gap-8 px-5 py-20 sm:px-8 lg:grid-cols-[1.12fr_.88fr] lg:py-28">
+          <div className="relative mx-auto grid min-h-[calc(100svh-84px)] max-w-7xl items-center gap-12 px-5 py-24 sm:px-8 lg:min-h-[800px] lg:grid-cols-[1.04fr_.96fr] lg:py-32">
             <div className="relative z-10">
               <Reveal><span className="inline-flex items-center gap-2 rounded-full border border-[#91cbd5]/25 bg-white/5 px-4 py-2 text-xs font-bold text-[#a8d7de]"><Sparkles size={16} aria-hidden="true" /> منصة نمير لخدمات البرادات والمياه</span></Reveal>
               <Reveal delay={0.1}>
@@ -159,16 +182,24 @@ export default function PublicLanding({ servicesPage = false }: { servicesPage?:
               <Reveal delay={0.2}><p className="mt-6 max-w-xl text-base leading-9 text-[#c5e2e9] sm:text-lg">{servicesPage ? "استكشف خدمات تعبئة المياه والصيانة وتغيير الفلاتر، واطلع على طريقة طلب كل خدمة قبل تسجيل الدخول." : "من طلب تعبئة المياه إلى خدمات الصيانة وتغيير الفلاتر، تساعدك نمير على إدارة احتياجات برادتك ومتابعة الطلبات من مكان واحد."}</p></Reveal>
               <Reveal delay={0.3}>
                 <div className="mt-9 flex flex-wrap gap-3">
-                  <Link href={servicesPage ? "#service-list" : "/services"} className="inline-flex min-h-13 items-center gap-3 rounded-full bg-[#79bfca] px-7 py-4 text-sm font-extrabold text-[#092840] shadow-[0_12px_30px_rgba(40,191,216,.2)] transition-transform hover:-translate-y-1 focus-visible:outline-2 focus-visible:outline-offset-4">{servicesPage ? "تصفح الخدمات" : "استعرض الخدمات"} <ArrowLeft size={18} aria-hidden="true" /></Link>
+                  <Link href={servicesPage ? "#service-list" : "#home-services"} className="inline-flex min-h-13 items-center gap-3 rounded-full bg-[#79bfca] px-7 py-4 text-sm font-extrabold text-[#092840] shadow-[0_12px_30px_rgba(40,191,216,.2)] transition-transform hover:-translate-y-1 focus-visible:outline-2 focus-visible:outline-offset-4">{servicesPage ? "تصفح الخدمات" : "استعرض الخدمات"} <ArrowLeft size={18} aria-hidden="true" /></Link>
                   <Link href="/role" className="inline-flex min-h-13 items-center gap-2 rounded-full border border-white/30 px-7 py-4 text-sm font-extrabold text-white transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-4">الدخول إلى المنصة</Link>
                 </div>
               </Reveal>
+
+              <Reveal delay={0.4} className="mt-10 grid max-w-xl grid-cols-1 gap-3 sm:grid-cols-3">
+                {["استعراض مجاني للخدمات", "طلب ومتابعة من الحساب", "تفاصيل واضحة للأسعار"].map((value) => (
+                  <span key={value} className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[.05] px-3 py-3 text-[11px] font-bold text-[#d4eaf0]">
+                    <CircleCheck className="h-4 w-4 shrink-0 text-[#91cbd5]" aria-hidden="true" />{value}
+                  </span>
+                ))}
+              </Reveal>
             </div>
-            <Reveal delay={0.2} className="mx-auto w-full max-w-[430px]">
-              <motion.div animate={reduced ? undefined : { y: [0, -13, 0] }} transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }} className="relative mx-auto flex aspect-square w-full items-center justify-center rounded-[42px] border border-white/10 bg-[radial-gradient(circle_at_50%_45%,rgba(110,163,171,.15),rgba(14,66,103,.55)_55%,rgba(9,35,58,.25)_75%)] shadow-[0_35px_110px_rgba(0,0,0,.18)]">
+            <Reveal delay={0.2} className="mx-auto w-full max-w-[490px]">
+              <motion.div animate={reduced ? undefined : { y: [0, -13, 0] }} transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }} className="relative mx-auto flex aspect-square w-full items-center justify-center rounded-[52px] border border-white/10 bg-[radial-gradient(circle_at_50%_45%,rgba(110,163,171,.15),rgba(14,66,103,.55)_55%,rgba(9,35,58,.25)_75%)] shadow-[0_35px_110px_rgba(0,0,0,.18)]">
                 <div className="absolute inset-[13%] rounded-full border border-[#88edfa]/20" />
-                <div className="absolute inset-[24%] rounded-full border border-[#88edfa]/15" /><div className="absolute inset-[19%] rounded-full bg-white shadow-[0_18px_60px_rgba(0,0,0,.20)]" />
-                <Image src={logo} alt="شعار نمير" width={300} height={300} priority className="relative z-10 h-auto w-[53%] object-contain" />
+                <div className="absolute inset-[24%] rounded-full border border-[#88edfa]/15" /><div className="absolute inset-[19%] rounded-full bg-gradient-to-br from-white via-[#f8fcfd] to-[#d7ebef] shadow-[0_18px_70px_rgba(0,0,0,.25)]" />
+                <Image src={logo} alt="شعار نمير" width={300} height={300} priority className="relative z-10 h-auto w-[56%] object-contain" />
                 <span className="absolute bottom-[10%] rounded-full border border-white/15 bg-[#0c3554]/80 px-4 py-2 text-xs font-bold text-[#c9f2f8]">خدمات موثوقة · متابعة سهلة</span>
               </motion.div>
             </Reveal>
@@ -176,7 +207,77 @@ export default function PublicLanding({ servicesPage = false }: { servicesPage?:
           <Link href={servicesPage ? "#service-list" : "#home-services"} aria-label="الانتقال إلى الخدمات" className="absolute bottom-5 left-1/2 -translate-x-1/2 text-[#9bdbe6] transition-transform hover:translate-y-1"><ChevronDown size={25} aria-hidden="true" /></Link>
         </section>
 
-        <section id={servicesPage ? "service-list" : "home-services"} className="scroll-mt-8 px-5 py-20 sm:px-8 lg:py-28">
+
+        <section id="overview" className="relative overflow-hidden bg-[#eaf3f5] px-5 py-20 sm:px-8 lg:py-28">
+          <div className="pointer-events-none absolute -left-28 top-12 h-80 w-80 rounded-full bg-[#a5cbd0]/20 blur-[80px]" />
+          <div className="relative mx-auto grid max-w-7xl items-center gap-12 lg:grid-cols-[.85fr_1.15fr]">
+            <Reveal>
+              <div className="inline-flex items-center gap-2 text-xs font-extrabold text-[#277f93]"><Waves size={18} aria-hidden="true" /> عن منصة نمير</div>
+              <h2 className="mt-5 text-3xl font-extrabold leading-[1.6] sm:text-4xl">كل ما تحتاجه برادتك <span className="block text-[#327b90]">بتجربة منظمة وواضحة</span></h2>
+              <p className="mt-6 max-w-xl text-sm leading-9 text-[#5a7180]">نمير منصة إلكترونية لخدمات البرادات والمياه. يمكنك التعرف على الخدمات المتاحة قبل التسجيل، وبعد الدخول إلى حسابك تستطيع إضافة برادتك، تقديم طلب الخدمة، مراجعة تفاصيله ومتابعة حالته.</p>
+              <Link href="#how-it-works" className="mt-8 inline-flex items-center gap-2 text-sm font-extrabold text-[#206b83] hover:text-[#0d2b4e]">اكتشف طريقة العمل <ArrowDown size={17} aria-hidden="true" /></Link>
+            </Reveal>
+            <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
+              {highlights.map((item, index) => {
+                const Icon = item.icon;
+                return <Reveal key={item.title} delay={index * .09}>
+                  <div className="group flex min-h-[126px] items-center gap-5 rounded-[26px] border border-white/90 bg-white/85 p-6 shadow-[0_12px_45px_rgba(12,53,78,.045)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_24px_55px_rgba(12,53,78,.09)]">
+                    <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[20px] bg-[#e4f2f4] text-[#327b90] transition-transform duration-500 group-hover:rotate-[-8deg] group-hover:scale-105"><Icon size={28} strokeWidth={1.8} aria-hidden="true" /></div>
+                    <div><h3 className="text-base font-extrabold">{item.title}</h3><p className="mt-2 text-xs leading-7 text-[#6b8190]">{item.description}</p></div>
+                    <span className="mr-auto text-sm font-extrabold text-[#c0d5dd]">0{index + 1}</span>
+                  </div>
+                </Reveal>;
+              })}
+            </div>
+          </div>
+        </section>
+
+        <section id="pricing-process" className="scroll-mt-24 bg-[#0b2a43] px-5 py-20 text-white sm:px-8 lg:py-28">
+          <div className="mx-auto max-w-7xl">
+            <Reveal>
+              <span className="inline-flex items-center gap-2 text-xs font-bold text-[#a3d2dc]"><BadgeCheck size={18} aria-hidden="true" /> من الطلب إلى المتابعة</span>
+              <h2 className="mt-4 text-3xl font-extrabold leading-relaxed sm:text-4xl">كيف تعرف التكلفة وتتابع الدفع؟</h2>
+              <p className="mt-4 max-w-3xl text-sm leading-9 text-[#c3d8df]">يختلف تسعير الخدمة حسب نوعها. نوضح لك مراحل الطلب والاعتماد قبل إتمام عملية الدفع عند توفر وسيلة دفع مفعّلة.</p>
+            </Reveal>
+            <div className="mt-11 grid gap-5 md:grid-cols-3">
+              {paymentSteps.map((item, index) => {
+                const Icon = item.icon;
+                return <Reveal key={item.title} delay={index * .1}>
+                  <div className="group relative h-full overflow-hidden rounded-[28px] border border-white/10 bg-white/[.055] p-7 transition-all duration-300 hover:-translate-y-2 hover:border-[#a3d2dc]/45 hover:bg-white/[.085]">
+                    <div className="mb-10 flex items-center justify-between"><div className="rounded-2xl bg-white/10 p-4 text-[#b7d9e2]"><Icon size={27} aria-hidden="true" /></div><span className="text-3xl font-extrabold text-white/15">0{index+1}</span></div>
+                    <h3 className="text-xl font-extrabold">{item.title}</h3>
+                    <p className="mt-4 text-sm leading-8 text-[#c7d9de]">{item.description}</p>
+                  </div>
+                </Reveal>;
+              })}
+            </div>
+            <Reveal className="mt-8 rounded-2xl border border-[#a3d2dc]/20 bg-white/[.04] px-6 py-5 text-xs leading-8 text-[#d4e5ea]">
+              تفاصيل المبلغ النهائي وأي رسوم أو ضرائب مطبقة تظهر في رحلة الطلب بحسب إعدادات الخدمة. هذه الصفحة تعريفية ولا تُعد فاتورة أو عرض سعر نهائي.
+            </Reveal>
+          </div>
+        </section>
+
+        <section id="faq" className="scroll-mt-24 bg-white px-5 py-20 sm:px-8 lg:py-28">
+          <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[.75fr_1.25fr]">
+            <Reveal>
+              <span className="inline-flex items-center gap-2 text-xs font-extrabold text-[#327b90]"><HelpCircle size={19} aria-hidden="true" /> الأسئلة الشائعة</span>
+              <h2 className="mt-5 text-3xl font-extrabold leading-relaxed sm:text-4xl">كل التفاصيل <span className="block text-[#327b90]">قبل ما تبدأ</span></h2>
+              <p className="mt-4 max-w-md text-sm leading-8 text-[#6b8190]">إجابات على أكثر الأسئلة ارتباطًا بطلب الخدمات والتسعير والمتابعة داخل نمير.</p>
+            </Reveal>
+            <div className="space-y-3">
+              {commonQuestions.map((item, index) => <Reveal key={item.q} delay={index * .04}>
+                <div className="overflow-hidden rounded-[22px] border border-[#e1eaee] bg-[#f7fafb] transition-colors hover:border-[#bdd5db]">
+                  <button type="button" aria-expanded={activeFaq === index} onClick={() => setActiveFaq(activeFaq === index ? null : index)} className="flex w-full items-center justify-between gap-4 p-5 text-right text-sm font-extrabold text-[#12334a] sm:p-6">
+                    <span>{item.q}</span>{activeFaq === index ? <ChevronUp size={20} className="shrink-0 text-[#397f90]" /> : <ChevronDown size={20} className="shrink-0 text-[#397f90]" />}
+                  </button>
+                  <AnimatePresence initial={false}>{activeFaq === index && <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: reduced ? 0 : .26 }} className="overflow-hidden"><p className="px-5 pb-6 text-sm leading-9 text-[#617c89] sm:px-6">{item.a}</p></motion.div>}</AnimatePresence>
+                </div>
+              </Reveal>)}
+            </div>
+          </div>
+        </section>
+
+        <section id={servicesPage ? "service-list" : "home-services"} className="scroll-mt-24 px-5 py-20 sm:px-8 lg:py-28">
           <div className="mx-auto max-w-7xl">
             <Reveal className="mb-11">
               <div className="mb-3 inline-flex items-center gap-2 text-xs font-extrabold text-[#1088a7]"><span className="h-2 w-2 rounded-full bg-[#358da2]" /> خدمات نمير</div>
@@ -189,7 +290,7 @@ export default function PublicLanding({ servicesPage = false }: { servicesPage?:
           </div>
         </section>
 
-        <section id="how-it-works" className="scroll-mt-5 bg-white px-5 py-20 sm:px-8 lg:py-24">
+        <section id="how-it-works" className="scroll-mt-24 bg-white px-5 py-20 sm:px-8 lg:py-24">
           <div className="mx-auto max-w-7xl">
             <Reveal><div className="text-xs font-extrabold text-[#0e9cbb]">تجربة منظمة وبسيطة</div><h2 className="mt-3 text-3xl font-extrabold sm:text-4xl">كيف تعمل نمير؟</h2><p className="mt-4 text-sm leading-8 text-[#698090]">تعرّف على الخطوات الأساسية قبل الدخول إلى حسابك</p></Reveal>
             <div className="mt-12 grid gap-5 md:grid-cols-3">
