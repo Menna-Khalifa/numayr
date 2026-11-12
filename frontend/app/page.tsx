@@ -1,5 +1,5 @@
-import SplashScreen from "@/components/SplashScreen";
+import PublicLanding from "@/components/PublicLanding";
 
 export default function Home() {
-  return <SplashScreen />;
+  return <PublicLanding />;
 }
