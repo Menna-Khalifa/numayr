@@ -4,7 +4,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { ArrowLeft, ArrowUpLeft, CheckCircle2, ChevronDown, Droplets, Filter, Menu, ShieldCheck, Sparkles, Wrench, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const logo = "https://res.cloudinary.com/deayevwds/image/upload/v1791205176/Numayr_Arch_and_Droplet_Logo_dt4yg5.png";
 
@@ -101,6 +101,13 @@ function ServiceGrid() {
 export default function PublicLanding({ servicesPage = false }: { servicesPage?: boolean }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const reduced = useReducedMotion();
+
+  useEffect(() => {
+    const element = document.documentElement;
+    const previous = element.style.scrollBehavior;
+    element.style.scrollBehavior = "smooth";
+    return () => { element.style.scrollBehavior = previous; };
+  }, []);
 
   return (
     <div dir="rtl" className="min-h-screen scroll-smooth overflow-x-hidden bg-[#f0f8fa] text-[#0d2b4e]">
